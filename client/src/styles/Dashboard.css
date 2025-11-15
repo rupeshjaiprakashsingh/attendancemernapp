@@ -1,41 +1,52 @@
-.dashboard-main{
-    font-size: 30px;
-    height: 100vh;
-    width: 100%;
-
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    flex-direction: column;
+.dashboard-nav {
+  display: flex;
+  gap: 20px;
+  background: #1e293b;
+  padding: 12px 20px;
+  border-radius: 8px;
+  margin-bottom: 20px;
 }
 
-.dashboard-main p{
-  font-size: 20px;
-  padding: 0 20px
+.nav-item {
+  color: white;
+  text-decoration: none;
+  font-size: 16px;
+  font-weight: 500;
+  padding: 8px 14px;
+  border-radius: 6px;
+  transition: 0.2s ease;
 }
 
-.logout-button{
-    background: black;
-    color: white;
-    border: 3px solid black;
-    transition: background 1s linear 0ms;
-    transition: color 500ms linear 0ms;
+.nav-item:hover {
+  background: #334155;
+}
 
-    width: 500px;
-    padding: 16px;
-    border-radius: 4px;
-    cursor: pointer;
-    border-radius: 30px;
-    font-weight: 600;
-    margin-top: 10px;
+.nav-item.active {
+  background: #334155;
+}
 
-    font-size: 20px;
-    text-align: center;
-    text-decoration: none;
-  }
+.nav-logout {
+  margin-left: auto;
+  background: #dc2626;
+}
 
-  
-  .logout-button:hover{
-    color: #333;
-    background-color: white;
-  }
+.nav-logout:hover {
+  background: #b91c1c;
+}
+
+.dashboard-content {
+  padding: 20px 0;
+}
+
+.dashboard-content h1 {
+  font-size: 32px;
+  font-weight: 600;
+  margin-bottom: 20px;
+  color: #1e293b;
+}
+
+.dashboard-content p {
+  font-size: 18px;
+  color: #666;
+  line-height: 1.6;
+}
