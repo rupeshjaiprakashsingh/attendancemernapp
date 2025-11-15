@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
+import { toast } from 'react-toastify';
 import "../styles/Attendance.css";
 
 export default function Attendance() {
@@ -113,9 +114,14 @@ export default function Attendance() {
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
-      setMsg(res.data.message || "Marked successfully");
+      const message = res.data.message || "Marked successfully";
+      setMsg(message);
+      // show toast message for success (e.g., "IN marked successfully" or "OUT marked successfully")
+      toast.success(message);
     } catch (error) {
-      setMsg(error.response?.data?.message || "Something went wrong");
+      const errMsg = error.response?.data?.message || error.message || "Something went wrong";
+      setMsg(errMsg);
+      toast.error(errMsg);
     }
 
     setLoading(false);
