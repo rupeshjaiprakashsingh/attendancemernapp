@@ -16,7 +16,8 @@ app.use(express.json());
 app.use(cors());
 
 // Versioned APIs
-app.use("/api/v1/users", userRoutes);          // Example: /api/v1/users/register
+// Mount user routes at /api/v1 so endpoints become /api/v1/login, /api/v1/register
+app.use("/api/v1", userRoutes);                 // Example: /api/v1/register
 app.use("/api/v1/attendance", attendanceRoutes); // Example: /api/v1/attendance/mark
 
 const port = process.env.PORT || 3000;
