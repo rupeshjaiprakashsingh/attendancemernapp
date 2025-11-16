@@ -58,21 +58,46 @@ const Dashboard = () => {
 
         {/* MENU ITEMS */}
         <ul className={`nav-menu ${menuOpen ? "open" : ""}`}>
+
           <li>
-            <Link to="/dashboard" className="nav-item">Home</Link>
+            <Link
+              to="/dashboard"
+              className="nav-item"
+              onClick={() => setMenuOpen(false)}
+            >
+              Home
+            </Link>
           </li>
 
           <li>
-            <Link to="/dashboard/attendance" className="nav-item">Attendance</Link>
+            <Link
+              to="/dashboard/attendance"
+              className="nav-item"
+              onClick={() => setMenuOpen(false)}
+            >
+              Attendance
+            </Link>
           </li>
 
           <li>
-            <Link to="/dashboard/attendance-list" className="nav-item">Attendance List</Link>
+            <Link
+              to="/dashboard/attendance-list"
+              className="nav-item"
+              onClick={() => setMenuOpen(false)}
+            >
+              Attendance List
+            </Link>
           </li>
 
           {/* Logout (mobile view inside menu) */}
           <li className="mobile-logout">
-            <Link to="/logout" className="nav-item nav-logout">Logout</Link>
+            <Link
+              to="/logout"
+              className="nav-item nav-logout"
+              onClick={() => setMenuOpen(false)}
+            >
+              Logout
+            </Link>
           </li>
         </ul>
 
