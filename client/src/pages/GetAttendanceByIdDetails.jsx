@@ -4,45 +4,12 @@ import axios from "axios";
 import "../styles/map.css";
 
 import {
-  MapContainer,
-  TileLayer,
+  GoogleMap,
   Marker,
-  Popup,
   Polyline,
-  useMap
-} from "react-leaflet";
-
-import L from "leaflet";
-import "leaflet/dist/leaflet.css";
-
-import marker2x from "leaflet/dist/images/marker-icon-2x.png";
-import marker from "leaflet/dist/images/marker-icon.png";
-import shadow from "leaflet/dist/images/marker-shadow.png";
-
-// FIX DEFAULT ICONS
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: marker2x,
-  iconUrl: marker,
-  shadowUrl: shadow,
-});
-
-// AUTO FIT SAFE ZOOM (avoid zoom = 20 issue)
-function FitBounds({ positions }) {
-  const map = useMap();
-
-  useEffect(() => {
-    if (!positions || positions.length === 0) return;
-
-    const bounds = L.latLngBounds(positions);
-
-    map.fitBounds(bounds, {
-      padding: [50, 50],
-      maxZoom: 17, // 👌 Prevent zooming too much
-    });
-  }, [positions, map]);
-
-  return null;
-}
+  InfoWindow,
+  useJsApiLoader,
+} from "@react-google-maps/api";
 
 export default function GetAttendanceByIdDetails() {
   const { id } = useParams();
@@ -50,11 +17,17 @@ export default function GetAttendanceByIdDetails() {
   const date = query.get("date");
 
   const [attendance, setAttendance] = useState(null);
+  const [selectedMarker, setSelectedMarker] = useState(null);
 
   const token =
     JSON.parse(localStorage.getItem("auth")) ||
     localStorage.getItem("token") ||
     "";
+
+  // Load Google Maps
+  const { isLoaded } = useJsApiLoader({
+    googleMapsApiKey: "AIzaSyBAbFbmXPOSgsBnhuYrCtSQ7yXK_0nB--Y",
+  });
 
   // ========= API CALL =========
   useEffect(() => {
@@ -77,28 +50,32 @@ export default function GetAttendanceByIdDetails() {
   }, [id, date, token]);
 
   if (!attendance) return <div>Loading...</div>;
+  if (!isLoaded) return <div>Loading Map...</div>;
 
   const IN = attendance.in;
   const OUT = attendance.out;
 
-  let inPos = IN ? [IN.latitude, IN.longitude] : null;
-  let outPos = OUT ? [OUT.latitude, OUT.longitude] : null;
-console.log("MAP POSITIONS →", { inPos, outPos });
+  let inPos = IN ? { lat: IN.latitude, lng: IN.longitude } : null;
+  let outPos = OUT ? { lat: OUT.latitude, lng: OUT.longitude } : null;
 
-  // Prevent both markers from overlapping
+  // Avoid marker overlap
   if (
     inPos &&
     outPos &&
-    inPos[0] === outPos[0] &&
-    inPos[1] === outPos[1]
+    inPos.lat === outPos.lat &&
+    inPos.lng === outPos.lng
   ) {
-    outPos = [outPos[0] + 0.0002, outPos[1] + 0.0002];
+    outPos = {
+      lat: outPos.lat + 0.0002,
+      lng: outPos.lng + 0.0002,
+    };
   }
 
-  const positions = [inPos, outPos].filter(Boolean);
+  const pathPoints = [inPos, outPos].filter(Boolean);
 
   return (
     <div style={{ display: "flex", gap: "20px", padding: "20px" }}>
+      
       {/* LEFT PANEL */}
       <div
         style={{
@@ -146,47 +123,64 @@ console.log("MAP POSITIONS →", { inPos, outPos });
         )}
       </div>
 
-      {/* MAP */}
+      {/* ===== GOOGLE MAP ===== */}
       <div className="map-wrapper">
-        <MapContainer
-          center={inPos || [20, 78]}
-          zoom={13}
-          maxZoom={18}
-          minZoom={3}
-          scrollWheelZoom={true}
-          style={{ width: "100%", height: "100%" }}
+        <GoogleMap
+          mapContainerStyle={{ width: "100%", height: "100%" }}
+          center={inPos || { lat: 20.5937, lng: 78.9629 }}
+          zoom={15}
+          options={{
+            streetViewControl: false,
+            mapTypeControl: false,
+          }}
         >
-          <TileLayer
-            attribution='&copy; OpenStreetMap'
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          />
 
+          {/* IN Marker */}
           {inPos && (
-            <Marker position={inPos}>
-              <Popup>
-                <b>IN</b><br />
-                {IN.address}<br />
-                {new Date(IN.deviceTime).toLocaleString()}
-              </Popup>
-            </Marker>
+            <Marker
+              position={inPos}
+              label="IN"
+              onClick={() => setSelectedMarker({ type: "IN", data: IN })}
+            />
           )}
 
+          {/* OUT Marker */}
           {outPos && (
-            <Marker position={outPos}>
-              <Popup>
-                <b>OUT</b><br />
-                {OUT.address}<br />
-                {new Date(OUT.deviceTime).toLocaleString()}
-              </Popup>
-            </Marker>
+            <Marker
+              position={outPos}
+              label="OUT"
+              onClick={() => setSelectedMarker({ type: "OUT", data: OUT })}
+            />
           )}
 
-          {positions.length >= 2 && (
-            <Polyline positions={positions} color="blue" />
+          {/* Polyline */}
+          {pathPoints.length >= 2 && (
+            <Polyline
+              path={pathPoints}
+              options={{
+                strokeColor: "#0000FF",
+                strokeWeight: 3,
+              }}
+            />
           )}
 
-          <FitBounds positions={positions} />
-        </MapContainer>
+          {/* Info Popup */}
+          {selectedMarker && (
+            <InfoWindow
+              position={
+                selectedMarker.type === "IN" ? inPos : outPos
+              }
+              onCloseClick={() => setSelectedMarker(null)}
+            >
+              <div>
+                <b>{selectedMarker.type}</b><br />
+                {selectedMarker.data.address}<br />
+                {new Date(selectedMarker.data.deviceTime).toLocaleString()}
+              </div>
+            </InfoWindow>
+          )}
+
+        </GoogleMap>
       </div>
     </div>
   );
