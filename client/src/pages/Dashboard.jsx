@@ -5,8 +5,12 @@ import { toast } from "react-toastify";
 import axios from "axios";
 
 const Dashboard = () => {
-  const [token, setToken] = useState(JSON.parse(localStorage.getItem("auth")) || "");
+  const [token, setToken] = useState(
+    JSON.parse(localStorage.getItem("auth")) || ""
+  );
   const [data, setData] = useState({});
+  const [menuOpen, setMenuOpen] = useState(false);
+
   const navigate = useNavigate();
 
   const fetchLuckyNumber = async () => {
@@ -15,7 +19,10 @@ const Dashboard = () => {
         headers: { Authorization: `Bearer ${token}` }
       });
 
-      setData({ msg: response.data.msg, luckyNumber: response.data.secret });
+      setData({
+        msg: response.data.msg,
+        luckyNumber: response.data.secret
+      });
     } catch (error) {
       toast.error(error.message);
     }
@@ -35,33 +42,47 @@ const Dashboard = () => {
 
       {/* NAVIGATION */}
       <nav className="dashboard-nav">
-        <Link
-          to="/dashboard"
-          className="nav-item"
-        >
-          Home
-        </Link>
 
-        <Link
-          to="/dashboard/attendance"
-          className="nav-item"
-        >
-          Attendance
-        </Link>
+        {/* LEFT side + hamburger */}
+        <div className="nav-left">
+          <div className="nav-logo">Attendance</div>
 
-        <Link
-          to="/dashboard/attendance-list"
-          className="nav-item"
-        >
-          Attendance List
-        </Link>
+          {/* Mobile Toggle */}
+          <button
+            className="nav-toggle"
+            onClick={() => setMenuOpen(!menuOpen)}
+          >
+            ☰
+          </button>
+        </div>
 
-        <Link to="/logout" className="nav-item nav-logout">
+        {/* MENU ITEMS */}
+        <ul className={`nav-menu ${menuOpen ? "open" : ""}`}>
+          <li>
+            <Link to="/dashboard" className="nav-item">Home</Link>
+          </li>
+
+          <li>
+            <Link to="/dashboard/attendance" className="nav-item">Attendance</Link>
+          </li>
+
+          <li>
+            <Link to="/dashboard/attendance-list" className="nav-item">Attendance List</Link>
+          </li>
+
+          {/* Logout (mobile view inside menu) */}
+          <li className="mobile-logout">
+            <Link to="/logout" className="nav-item nav-logout">Logout</Link>
+          </li>
+        </ul>
+
+        {/* Desktop Logout */}
+        <Link to="/logout" className="nav-item nav-logout desktop-logout">
           Logout
         </Link>
       </nav>
 
-      {/* Render nested pages here */}
+      {/* Render nested components */}
       <div className="dashboard-content">
         <Outlet />
       </div>
