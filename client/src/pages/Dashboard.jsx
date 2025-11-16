@@ -1,25 +1,20 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from "react";
 import "../styles/Dashboard.css";
-import { Link, useNavigate } from 'react-router-dom';
-import { toast } from 'react-toastify';
-import axios from 'axios';
-import Attendance from './Attendance';
+import { Link, useNavigate, Outlet } from "react-router-dom";
+import { toast } from "react-toastify";
+import axios from "axios";
 
 const Dashboard = () => {
   const [token, setToken] = useState(JSON.parse(localStorage.getItem("auth")) || "");
   const [data, setData] = useState({});
-  const [currentPage, setCurrentPage] = useState("home");
   const navigate = useNavigate();
 
   const fetchLuckyNumber = async () => {
-    let axiosConfig = {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    };
-
     try {
-      const response = await axios.get("/api/v1/dashboard", axiosConfig);
+      const response = await axios.get("/api/v1/dashboard", {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
       setData({ msg: response.data.msg, luckyNumber: response.data.secret });
     } catch (error) {
       toast.error(error.message);
@@ -28,6 +23,7 @@ const Dashboard = () => {
 
   useEffect(() => {
     fetchLuckyNumber();
+
     if (token === "") {
       navigate("/login");
       toast.warn("Please login first to access dashboard");
@@ -37,43 +33,38 @@ const Dashboard = () => {
   return (
     <div className="dashboard-main">
 
-      {/* ====================== NAVIGATION BAR ====================== */}
+      {/* NAVIGATION */}
       <nav className="dashboard-nav">
-        <button 
-          onClick={() => setCurrentPage("home")}
-          className={`nav-item ${currentPage === "home" ? 'active' : ''}`}
-          style={{
-            background: currentPage === "home" ? '#334155' : 'transparent',
-            border: 'none',
-            cursor: 'pointer'
-          }}
+        <Link
+          to="/dashboard"
+          className="nav-item"
         >
           Home
-        </button>
-        <button 
-          onClick={() => setCurrentPage("attendance")}
-          className={`nav-item ${currentPage === "attendance" ? 'active' : ''}`}
-          style={{
-            background: currentPage === "attendance" ? '#334155' : 'transparent',
-            border: 'none',
-            cursor: 'pointer'
-          }}
+        </Link>
+
+        <Link
+          to="/dashboard/attendance"
+          className="nav-item"
         >
           Attendance
-        </button>
-        <Link to="/logout" className="nav-item nav-logout">Logout</Link>
-      </nav>
-      {/* ============================================================ */}
+        </Link>
 
-      {/* RENDER CURRENT PAGE */}
-      {currentPage === "home" ? (
-        <div className="dashboard-content">
-          <h1>Dashboard</h1>
-          <p>Hi {data.msg}! {data.luckyNumber}</p>
-        </div>
-      ) : (
-        <Attendance />
-      )}
+        <Link
+          to="/dashboard/attendance-list"
+          className="nav-item"
+        >
+          Attendance List
+        </Link>
+
+        <Link to="/logout" className="nav-item nav-logout">
+          Logout
+        </Link>
+      </nav>
+
+      {/* Render nested pages here */}
+      <div className="dashboard-content">
+        <Outlet />
+      </div>
     </div>
   );
 };

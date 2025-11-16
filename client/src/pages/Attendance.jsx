@@ -1,3 +1,5 @@
+// Updated Attendance Component with "Mark Attendance" button placed at the top
+
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { toast } from 'react-toastify';
@@ -27,7 +29,7 @@ export default function Attendance() {
       id = "dev-" + Math.random().toString(36).substring(2, 12);
       localStorage.setItem("device_id", id);
     }
-    setForm(p => ({ ...p, deviceId: id }));
+    setForm((p) => ({ ...p, deviceId: id }));
   };
 
   // Fetch Battery Status
@@ -35,31 +37,27 @@ export default function Attendance() {
     try {
       if (navigator.getBattery) {
         const battery = await navigator.getBattery();
-        setForm(p => ({ ...p, batteryPercentage: Math.round(battery.level * 100) }));
+        setForm((p) => ({ ...p, batteryPercentage: Math.round(battery.level * 100) }));
       }
-    } catch {
-      console.log("Battery API not supported");
-    }
+    } catch {}
   };
 
   // Fetch Network Type
   const fetchNetwork = () => {
     try {
       const type = navigator.connection?.effectiveType || "";
-      setForm(p => ({ ...p, networkType: type.toUpperCase() }));
+      setForm((p) => ({ ...p, networkType: type.toUpperCase() }));
     } catch {}
   };
 
-  // Reverse Geocoding (Free Nominatim API)
+  // Reverse Geocoding
   const fetchAddress = async (lat, lng) => {
     try {
       const res = await axios.get(
         `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`
       );
-      setForm(p => ({ ...p, address: res.data.display_name || "" }));
-    } catch (err) {
-      console.log("Address fetch error");
-    }
+      setForm((p) => ({ ...p, address: res.data.display_name || "" }));
+    } catch {}
   };
 
   // Fetch GPS Location
@@ -70,22 +68,16 @@ export default function Attendance() {
     }
 
     navigator.geolocation.getCurrentPosition(
-      pos => {
+      (pos) => {
         const lat = pos.coords.latitude;
         const lng = pos.coords.longitude;
         const acc = pos.coords.accuracy;
 
-        setForm(p => ({
-          ...p,
-          latitude: lat,
-          longitude: lng,
-          locationAccuracy: acc,
-        }));
+        setForm((p) => ({ ...p, latitude: lat, longitude: lng, locationAccuracy: acc }));
 
         fetchAddress(lat, lng);
       },
-      err => {
-        console.log("GPS Error:", err.message);
+      (err) => {
         alert("Unable to fetch location");
       },
       { enableHighAccuracy: true }
@@ -100,7 +92,8 @@ export default function Attendance() {
     fetchLocation();
   }, []);
 
-  const token = JSON.parse(localStorage.getItem("auth")) || localStorage.getItem("token") || "";
+  const token =
+    JSON.parse(localStorage.getItem("auth")) || localStorage.getItem("token") || "";
 
   // Submit Attendance
   const markAttendance = async () => {
@@ -116,10 +109,9 @@ export default function Attendance() {
 
       const message = res.data.message || "Marked successfully";
       setMsg(message);
-      // show toast message for success (e.g., "IN marked successfully" or "OUT marked successfully")
       toast.success(message);
     } catch (error) {
-      const errMsg = error.response?.data?.message || error.message || "Something went wrong";
+      const errMsg = error.response?.data?.message || error.message;
       setMsg(errMsg);
       toast.error(errMsg);
     }
@@ -129,17 +121,28 @@ export default function Attendance() {
 
   return (
     <div className="attendance-container">
+     
+          <div className="attendance-buttons">
+            <button
+              type="button"
+              className="attendance-btn"
+              disabled={loading}
+              onClick={markAttendance}
+            >
+              {loading ? "Submitting..." : "Mark Attendance"}
+            </button>
+          </div>
+
       <div className="attendance-content">
         <h2>Mark Attendance</h2>
         <p>Record your check-in/check-out</p>
 
         <form className="attendance-form">
           <div className="form-group">
-            <label htmlFor="attendanceType">Attendance Type</label>
+            <label>Attendance Type</label>
             <select
-              id="attendanceType"
               value={form.attendanceType}
-              onChange={e => setForm({ ...form, attendanceType: e.target.value })}
+              onChange={(e) => setForm({ ...form, attendanceType: e.target.value })}
             >
               <option value="IN">IN</option>
               <option value="OUT">OUT</option>
@@ -147,92 +150,52 @@ export default function Attendance() {
           </div>
 
           <div className="form-group">
-            <label htmlFor="latitude">Latitude</label>
-            <input
-              id="latitude"
-              type="text"
-              value={form.latitude}
-              readOnly
-            />
+            <label>Latitude</label>
+            <input type="text" value={form.latitude} readOnly />
           </div>
 
           <div className="form-group">
-            <label htmlFor="longitude">Longitude</label>
-            <input
-              id="longitude"
-              type="text"
-              value={form.longitude}
-              readOnly
-            />
+            <label>Longitude</label>
+            <input type="text" value={form.longitude} readOnly />
           </div>
 
           <div className="form-group">
-            <label htmlFor="deviceTime">Device Time</label>
-            <input
-              id="deviceTime"
-              type="text"
-              value={form.deviceTime}
-              readOnly
-            />
+            <label>Device Time</label>
+            <input type="text" value={form.deviceTime} readOnly />
           </div>
 
           <div className="form-group">
-            <label htmlFor="address">Address</label>
-            <textarea
-              id="address"
-              value={form.address}
-              readOnly
-            />
+            <label>Address</label>
+            <textarea value={form.address} readOnly />
           </div>
 
           <div className="form-group">
-            <label htmlFor="locationAccuracy">Location Accuracy (meters)</label>
-            <input
-              id="locationAccuracy"
-              type="text"
-              value={form.locationAccuracy}
-              readOnly
-            />
+            <label>Accuracy (meters)</label>
+            <input type="text" value={form.locationAccuracy} readOnly />
           </div>
 
           <div className="form-group">
-            <label htmlFor="batteryPercentage">Battery (%)</label>
-            <input
-              id="batteryPercentage"
-              type="text"
-              value={form.batteryPercentage}
-              readOnly
-            />
+            <label>Battery (%)</label>
+            <input type="text" value={form.batteryPercentage} readOnly />
           </div>
 
           <div className="form-group">
-            <label htmlFor="networkType">Network Type</label>
-            <input
-              id="networkType"
-              type="text"
-              value={form.networkType}
-              readOnly
-            />
+            <label>Network Type</label>
+            <input type="text" value={form.networkType} readOnly />
           </div>
 
           <div className="form-group">
-            <label htmlFor="deviceId">Device Id</label>
-            <input
-              id="deviceId"
-              type="text"
-              value={form.deviceId}
-              readOnly
-            />
+            <label>Device ID</label>
+            <input type="text" value={form.deviceId} readOnly />
           </div>
 
           <div className="form-group">
-            <label htmlFor="remarks">Remarks</label>
+            <label>Remarks</label>
             <input
-              id="remarks"
               type="text"
               value={form.remarks}
-              onChange={e => setForm({ ...form, remarks: e.target.value })}
-              placeholder="Add remarks (optional)"
+              onChange={(e) => setForm({ ...form, remarks: e.target.value })}
+              placeholder="Optional remarks"
             />
           </div>
 
@@ -248,11 +211,7 @@ export default function Attendance() {
           </div>
         </form>
 
-        {msg && (
-          <div className={`attendance-message ${msg.toLowerCase().includes('success') || msg.toLowerCase().includes('successfully') ? 'success' : 'error'}`}>
-            {msg}
-          </div>
-        )}
+       
       </div>
     </div>
   );

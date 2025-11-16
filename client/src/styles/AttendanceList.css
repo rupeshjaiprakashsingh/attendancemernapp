@@ -1,0 +1,32 @@
+.attendance-list-page{
+  max-width:1100px;
+  margin: 0 auto;
+  padding: 20px;
+}
+.attendance-list-page h2{
+  font-size:28px;
+  margin-bottom:16px;
+  color:#1e293b;
+}
+.table-wrap{overflow-x:auto;border-radius:6px;border:1px solid #e5e7eb}
+.attendance-table{width:100%;border-collapse:collapse}
+.attendance-table th, .attendance-table td{padding:10px 12px;border-bottom:1px solid #eef2f7;text-align:left;font-size:14px}
+.attendance-table th{background:#f8fafc;color:#334155;font-weight:600}
+.address-cell{max-width:320px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pager{display:flex;gap:12px;align-items:center;justify-content:center;margin-top:16px}
+.pager button{padding:8px 14px;border-radius:6px;border:1px solid #cbd5e1;background:#fff;cursor:pointer}
+.pager button:disabled{opacity:0.5;cursor:not-allowed}
+.loading{padding:20px;text-align:center}
+.btn-view-details {
+  background: #2563eb;
+  color: #fff;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+}
+.btn-view-details:hover {
+  background: #1d4ed8;
+}
+.btn-view-details:active {
+  background: #1e40af;
+}
