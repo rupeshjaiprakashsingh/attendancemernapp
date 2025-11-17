@@ -1,0 +1,46 @@
+.profile-container {
+  padding: 30px;
+}
+
+.title {
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.profile-card {
+  margin-top: 15px;
+  background: #fff;
+  padding: 18px;
+  border-radius: 10px;
+  border: 1px solid #ddd;
+  width: 340px;
+}
+
+.section-title {
+  margin-top: 35px;
+  margin-bottom: 10px;
+  font-size: 22px;
+}
+
+.profile-form {
+  max-width: 350px;
+  display: flex;
+  flex-direction: column;
+}
+
+.profile-form input {
+  padding: 10px;
+  margin-bottom: 15px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+}
+
+.profile-btn {
+  background: #000;
+  color: #fff;
+  padding: 12px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+}

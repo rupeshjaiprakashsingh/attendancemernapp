@@ -16,12 +16,12 @@ const Dashboard = () => {
   const fetchLuckyNumber = async () => {
     try {
       const response = await axios.get("/api/v1/dashboard", {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       setData({
         msg: response.data.msg,
-        luckyNumber: response.data.secret
+        luckyNumber: response.data.secret,
       });
     } catch (error) {
       toast.error(error.message);
@@ -39,10 +39,8 @@ const Dashboard = () => {
 
   return (
     <div className="dashboard-main">
-
       {/* NAVIGATION */}
       <nav className="dashboard-nav">
-
         {/* LEFT side + hamburger */}
         <div className="nav-left">
           <div className="nav-logo">Attendance</div>
@@ -58,7 +56,6 @@ const Dashboard = () => {
 
         {/* MENU ITEMS */}
         <ul className={`nav-menu ${menuOpen ? "open" : ""}`}>
-
           <li>
             <Link
               to="/dashboard"
@@ -89,7 +86,27 @@ const Dashboard = () => {
             </Link>
           </li>
 
-          {/* Logout (mobile view inside menu) */}
+          <li>
+            <Link
+              to="/dashboard/reports"
+              className="nav-item"
+              onClick={() => setMenuOpen(false)}
+            >
+              Reports
+            </Link>
+          </li>
+
+          <li>
+            <Link
+              to="/dashboard/profile"
+              className="nav-item"
+              onClick={() => setMenuOpen(false)}
+            >
+              Profile
+            </Link>
+          </li>
+
+          {/* Mobile Logout */}
           <li className="mobile-logout">
             <Link
               to="/logout"
@@ -107,7 +124,7 @@ const Dashboard = () => {
         </Link>
       </nav>
 
-      {/* Render nested components */}
+      {/* Render nested children */}
       <div className="dashboard-content">
         <Outlet />
       </div>

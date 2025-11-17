@@ -1,10 +1,12 @@
 import { RouterProvider, createBrowserRouter } from "react-router-dom";
 import { Dashboard, HomeLayout, Landing, Login, Logout, Register } from "./pages";
-import { ToastContainer } from 'react-toastify';
-
-import Attendance from "./pages/Attendance";
+import { ToastContainer } from "react-toastify";
+import HomeDashboard from "./pages/HomeDashboard";
+import MarkAttendance from "./pages/MarkAttendance";
 import AttendanceList from "./pages/AttendanceList";
 import GetAttendanceByIdDetails from "./pages/GetAttendanceByIdDetails";
+import Reports from "./pages/Reports";
+import Profile from "./pages/Profile";
 
 const router = createBrowserRouter([
   {
@@ -14,23 +16,21 @@ const router = createBrowserRouter([
       { index: true, element: <Landing /> },
       { path: "login", element: <Login /> },
       { path: "register", element: <Register /> },
-
       {
         path: "dashboard",
         element: <Dashboard />,
         children: [
-          { index: true, element: <Attendance /> },
-          { path: "attendance", element: <Attendance /> },
+          { index: true, element: <HomeDashboard /> },
+          { path: "attendance", element: <MarkAttendance /> },
           { path: "attendance-list", element: <AttendanceList /> },
-
-          // ✔ DETAILS PAGE INSIDE DASHBOARD NOW
           { path: "attendance/:id", element: <GetAttendanceByIdDetails /> },
-        ],
+          { path: "reports", element: <Reports /> },
+          { path: "profile", element: <Profile /> }
+        ]
       },
-
-      { path: "logout", element: <Logout /> },
-    ],
-  },
+      { path: "logout", element: <Logout /> }
+    ]
+  }
 ]);
 
 function App() {
