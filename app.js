@@ -29,15 +29,6 @@ app.use("/api/v1/reports", reportRoutes);        // Example: /api/v1/reports/mon
 
 const port = process.env.PORT || 3000;
 
-// Serve static files from the client/dist directory
-const path = require("path");
-app.use(express.static(path.join(__dirname, "client/dist")));
-
-// Handle React routing, return all requests to React app
-app.get("*", (req, res) => {
-  res.sendFile(path.join(__dirname, "client/dist", "index.html"));
-});
-
 const start = async () => {
   try {
     await connectDB(process.env.MONGO_URI);
