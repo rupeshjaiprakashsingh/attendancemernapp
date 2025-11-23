@@ -32,7 +32,7 @@ const Login = () => {
           formData
         );
         localStorage.setItem('auth', JSON.stringify(response.data.token));
-        toast.success("Login successfull");
+        toast.success(`Welcome back, ${response.data.name}!`);
         navigate("/dashboard");
       } catch (err) {
         console.log(err);

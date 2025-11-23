@@ -20,12 +20,12 @@ router.route("/login").post(login);
 router.route("/register").post(register);
 router.route("/dashboard").get(authMiddleware, dashboard);
 
+// Profile Routes
+router.route("/profile").get(authMiddleware, getProfile).put(authMiddleware, updateProfile);
+
 // Admin User CRUD Routes
 router.route("/users").get(authMiddleware, getAllUsers).post(authMiddleware, createUser);
 router.route("/users/:id").get(authMiddleware, getUserById).put(authMiddleware, updateUser).delete(authMiddleware, deleteUser);
 router.put("/users/:id/reset-device", authMiddleware, resetDevice);
-
-// Profile Routes
-router.route("/profile").get(authMiddleware, getProfile).put(authMiddleware, updateProfile);
 
 module.exports = router;

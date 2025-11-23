@@ -23,7 +23,7 @@ const login = async (req, res) => {
         }
       );
 
-      return res.status(200).json({ msg: "user logged in", token, role: foundUser.role });
+      return res.status(200).json({ msg: "user logged in", token, role: foundUser.role, name: foundUser.name });
     } else {
       return res.status(400).json({ msg: "Bad password" });
     }
@@ -170,12 +170,19 @@ module.exports = {
   deleteUser,
   getProfile: async (req, res) => {
     try {
+      console.log("getProfile called. User:", req.user);
+      if (!req.user || !req.user.id) {
+        console.error("User ID missing in request");
+        return res.status(400).json({ msg: "User ID missing" });
+      }
       const user = await User.findById(req.user.id).select("-password");
       if (!user) {
+        console.error("User not found in DB for ID:", req.user.id);
         return res.status(404).json({ msg: "User not found" });
       }
       res.status(200).json(user);
     } catch (error) {
+      console.error("getProfile error:", error);
       res.status(500).json({ msg: error.message });
     }
   },
