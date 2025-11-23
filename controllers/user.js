@@ -16,14 +16,14 @@ const login = async (req, res) => {
 
     if (isMatch) {
       const token = jwt.sign(
-        { id: foundUser._id, name: foundUser.name },
+        { id: foundUser._id, name: foundUser.name, role: foundUser.role },
         process.env.JWT_SECRET,
         {
           expiresIn: "30d",
         }
       );
 
-      return res.status(200).json({ msg: "user logged in", token });
+      return res.status(200).json({ msg: "user logged in", token, role: foundUser.role });
     } else {
       return res.status(400).json({ msg: "Bad password" });
     }
@@ -42,25 +42,117 @@ const dashboard = async (req, res) => {
 };
 
 const getAllUsers = async (req, res) => {
-  let users = await User.find({});
+  try {
+    const { search, page = 1, limit = 10 } = req.query;
+    const query = {};
 
-  return res.status(200).json({ users });
+    if (search) {
+      query.$or = [
+        { name: { $regex: search, $options: "i" } },
+        { email: { $regex: search, $options: "i" } },
+      ];
+    }
+
+    const users = await User.find(query)
+      .select("-password")
+      .limit(limit * 1)
+      .skip((page - 1) * limit)
+      .sort({ createdAt: -1 });
+
+    const count = await User.countDocuments(query);
+
+    return res.status(200).json({
+      users,
+      totalPages: Math.ceil(count / limit),
+      currentPage: page,
+      totalUsers: count,
+    });
+  } catch (error) {
+    return res.status(500).json({ msg: error.message });
+  }
+};
+
+const getUserById = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id).select("-password");
+    if (!user) {
+      return res.status(404).json({ msg: "User not found" });
+    }
+    res.status(200).json({ user });
+  } catch (error) {
+    res.status(500).json({ msg: error.message });
+  }
+};
+
+const createUser = async (req, res) => {
+  try {
+    const { name, email, password, role } = req.body;
+    if (!name || !email || !password) {
+      return res.status(400).json({ msg: "Please provide all fields" });
+    }
+
+    const userExists = await User.findOne({ email });
+    if (userExists) {
+      return res.status(400).json({ msg: "Email already in use" });
+    }
+
+    const user = await User.create({ name, email, password, role: role || "user" });
+    res.status(201).json({ user });
+  } catch (error) {
+    res.status(500).json({ msg: error.message });
+  }
+};
+
+const updateUser = async (req, res) => {
+  try {
+    const { name, email, password, role } = req.body;
+    const user = await User.findById(req.params.id);
+
+    if (!user) {
+      return res.status(404).json({ msg: "User not found" });
+    }
+
+    user.name = name || user.name;
+    user.email = email || user.email;
+    user.role = role || user.role;
+    if (password) {
+      user.password = password; // Will be hashed by pre-save hook
+    }
+
+    await user.save();
+    res.status(200).json({ user });
+  } catch (error) {
+    res.status(500).json({ msg: error.message });
+  }
+};
+
+const deleteUser = async (req, res) => {
+  try {
+    const user = await User.findByIdAndDelete(req.params.id);
+    if (!user) {
+      return res.status(404).json({ msg: "User not found" });
+    }
+    res.status(200).json({ msg: "User deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ msg: error.message });
+  }
 };
 
 const register = async (req, res) => {
   let foundUser = await User.findOne({ email: req.body.email });
   if (foundUser === null) {
-    let { username, email, password } = req.body;
+    let { username, email, password, role } = req.body;
     if (username.length && email.length && password.length) {
       const person = new User({
         name: username,
         email: email,
         password: password,
+        role: role || "user",
       });
       await person.save();
       return res.status(201).json({ person });
-    }else{
-        return res.status(400).json({msg: "Please add all values in the request body"});
+    } else {
+      return res.status(400).json({ msg: "Please add all values in the request body" });
     }
   } else {
     return res.status(400).json({ msg: "Email already in use" });
@@ -72,4 +164,39 @@ module.exports = {
   register,
   dashboard,
   getAllUsers,
+  getUserById,
+  createUser,
+  updateUser,
+  deleteUser,
+  getProfile: async (req, res) => {
+    try {
+      const user = await User.findById(req.user.id).select("-password");
+      if (!user) {
+        return res.status(404).json({ msg: "User not found" });
+      }
+      res.status(200).json(user);
+    } catch (error) {
+      res.status(500).json({ msg: error.message });
+    }
+  },
+  updateProfile: async (req, res) => {
+    try {
+      const { name, password } = req.body;
+      const user = await User.findById(req.user.id);
+
+      if (!user) {
+        return res.status(404).json({ msg: "User not found" });
+      }
+
+      user.name = name || user.name;
+      if (password) {
+        user.password = password;
+      }
+
+      await user.save();
+      res.status(200).json({ msg: "Profile updated successfully", user });
+    } catch (error) {
+      res.status(500).json({ msg: error.message });
+    }
+  }
 };

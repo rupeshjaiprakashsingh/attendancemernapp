@@ -8,7 +8,7 @@ exports.markAttendance = async (req, res) => {
     const userId = req.user.id; // Get from JWT
     const ipAddress = req.ip;
 
-    const {
+    let {
       attendanceType,
       latitude,
       longitude,
@@ -21,6 +21,13 @@ exports.markAttendance = async (req, res) => {
       remarks,
     } = req.body;
 
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date();
+    endOfDay.setHours(23, 59, 59, 999);
+
+    console.log(`[Attendance] Request: ${attendanceType}, User: ${userId}, Time: ${new Date().toISOString()}`);
+
     // -------- Mandatory Validation ----------
     if (!attendanceType || !latitude || !longitude || !deviceTime || !deviceId) {
       return res.status(400).json({ message: "Mandatory fields missing" });
@@ -32,13 +39,14 @@ exports.markAttendance = async (req, res) => {
         userId,
         attendanceType: "IN",
         createdAt: {
-          $gte: new Date().setHours(0, 0, 0),
-          $lte: new Date().setHours(23, 59, 59),
+          $gte: startOfDay,
+          $lte: endOfDay,
         },
       });
 
       if (alreadyMarkedIn) {
-        return res.status(400).json({ message: "You’re already checked in Now you can check out when leaving." });
+        console.log(`[Attendance] Duplicate IN found. Switching to OUT.`);
+        attendanceType = "OUT";
       }
     }
 
@@ -48,18 +56,61 @@ exports.markAttendance = async (req, res) => {
         userId,
         attendanceType: "IN",
         createdAt: {
-          $gte: new Date().setHours(0, 0, 0),
-          $lte: new Date().setHours(23, 59, 59),
+          $gte: startOfDay,
+          $lte: endOfDay,
         },
       });
 
       if (!inMarked) {
         return res.status(400).json({ message: "You must mark IN before OUT" });
       }
+
+      const alreadyMarkedOut = await Attendance.findOne({
+        userId,
+        attendanceType: "OUT",
+        createdAt: {
+          $gte: startOfDay,
+          $lte: endOfDay,
+        },
+      });
+
+      if (alreadyMarkedOut) {
+        return res.status(400).json({ message: "You already did checkout." });
+      }
     }
 
     // Geofence Validation
     const insideFence = isInsideGeofence(latitude, longitude);
+
+    // Calculate Working Hours if OUT
+    let workingHours = 0;
+    let status = "Present";
+
+    if (attendanceType === "OUT") {
+      const inRecord = await Attendance.findOne({
+        userId,
+        attendanceType: "IN",
+        createdAt: {
+          $gte: startOfDay,
+          $lte: endOfDay,
+        },
+      });
+
+      if (inRecord) {
+        const ms = new Date(deviceTime) - new Date(inRecord.deviceTime);
+        workingHours = ms / (1000 * 60 * 60); // Hours
+
+        if (workingHours > 6) {
+          status = "Full Day";
+        } else if (workingHours > 3) {
+          status = "Half Day";
+        }
+
+        if (workingHours < 4) {
+          status = "Present";
+        }
+      }
+    }
 
     // Create Attendance Entry
     const record = new Attendance({
@@ -76,6 +127,8 @@ exports.markAttendance = async (req, res) => {
       remarks,
       ipAddress,
       validatedInsideGeoFence: insideFence,
+      workingHours: attendanceType === "OUT" ? workingHours : undefined,
+      status: attendanceType === "OUT" ? status : "Present",
     });
 
     await record.save();
@@ -90,33 +143,145 @@ exports.markAttendance = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
-// GET ALL ATTENDANCE (Admin or Global View)
+
+// GET ALL ATTENDANCE (Admin or Global View) - Merged by Day
 exports.getAllAttendance = async (req, res) => {
   try {
-    const page = parseInt(req.query.page) || 1; 
+    const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 20;
     const skip = (page - 1) * limit;
 
-    const attendanceRecords = await Attendance.find({})
-      .populate("userId", "name email")
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit);
+    // Build match stage for RBAC
+    let matchStage = {};
+    if (req.user.role !== "admin") {
+      const mongoose = require('mongoose');
+      matchStage.userId = new mongoose.Types.ObjectId(req.user.id);
+    }
 
-    const total = await Attendance.countDocuments();
+    // Aggregation pipeline to merge IN/OUT by day
+    const pipeline = [
+      // Stage 1: Match based on role
+      ...(Object.keys(matchStage).length > 0 ? [{ $match: matchStage }] : []),
+
+      // Stage 2: Add dateStr field (YYYY-MM-DD)
+      {
+        $addFields: {
+          dateStr: {
+            $dateToString: { format: "%Y-%m-%d", date: "$deviceTime" }
+          }
+        }
+      },
+
+      // Stage 3: Sort by deviceTime to ensure proper ordering within groups
+      { $sort: { deviceTime: 1 } },
+
+      // Stage 4: Group by userId and dateStr
+      {
+        $group: {
+          _id: { userId: "$userId", dateStr: "$dateStr" },
+          inRecord: {
+            $first: {
+              $cond: [
+                { $eq: ["$attendanceType", "IN"] },
+                "$$ROOT",
+                null
+              ]
+            }
+          },
+          outRecord: {
+            $first: {
+              $cond: [
+                { $eq: ["$attendanceType", "OUT"] },
+                "$$ROOT",
+                null
+              ]
+            }
+          },
+          allRecords: { $push: "$$ROOT" }
+        }
+      },
+
+      // Stage 5: Project to extract IN and OUT from allRecords
+      {
+        $project: {
+          userId: "$_id.userId",
+          dateStr: "$_id.dateStr",
+          inRecord: {
+            $arrayElemAt: [
+              {
+                $filter: {
+                  input: "$allRecords",
+                  as: "record",
+                  cond: { $eq: ["$$record.attendanceType", "IN"] }
+                }
+              },
+              0
+            ]
+          },
+          outRecord: {
+            $arrayElemAt: [
+              {
+                $filter: {
+                  input: "$allRecords",
+                  as: "record",
+                  cond: { $eq: ["$$record.attendanceType", "OUT"] }
+                }
+              },
+              0
+            ]
+          }
+        }
+      },
+
+      // Stage 6: Lookup user details
+      {
+        $lookup: {
+          from: "users",
+          localField: "userId",
+          foreignField: "_id",
+          as: "userDetails"
+        }
+      },
+
+      // Stage 7: Unwind user details
+      {
+        $unwind: {
+          path: "$userDetails",
+          preserveNullAndEmptyArrays: true
+        }
+      },
+
+      // Stage 8: Sort by date descending
+      { $sort: { dateStr: -1 } },
+
+      // Stage 9: Facet for pagination and total count
+      {
+        $facet: {
+          metadata: [{ $count: "total" }],
+          data: [{ $skip: skip }, { $limit: limit }]
+        }
+      }
+    ];
+
+    const result = await Attendance.aggregate(pipeline);
+
+    const total = result[0]?.metadata[0]?.total || 0;
+    const records = result[0]?.data || [];
 
     res.status(200).json({
       success: true,
       total,
       page,
       limit,
-      records: attendanceRecords,
+      records,
     });
 
   } catch (error) {
+    console.error("Aggregation error:", error);
     res.status(500).json({ message: error.message });
   }
 };
+
 exports.getDailyAttendance = async (req, res) => {
   try {
     const { userId } = req.params;
@@ -179,5 +344,45 @@ exports.getDailyAttendance = async (req, res) => {
   }
 };
 
+// DELETE Single Attendance
+exports.deleteAttendance = async (req, res) => {
+  try {
+    const { id } = req.params;
+    await Attendance.findByIdAndDelete(id);
+    res.status(200).json({ message: "Record deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
 
+// DELETE Multiple Attendance
+exports.deleteMultipleAttendance = async (req, res) => {
+  try {
+    const { ids } = req.body; // Expect array of IDs
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ message: "No IDs provided" });
+    }
 
+    await Attendance.deleteMany({ _id: { $in: ids } });
+    res.status(200).json({ message: "Records deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// UPDATE Attendance
+exports.updateAttendance = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updates = req.body;
+
+    const record = await Attendance.findByIdAndUpdate(id, updates, { new: true });
+    if (!record) {
+      return res.status(404).json({ message: "Record not found" });
+    }
+
+    res.status(200).json({ message: "Record updated successfully", record });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};

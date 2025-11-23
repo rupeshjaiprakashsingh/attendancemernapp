@@ -10,10 +10,11 @@ const Dashboard = () => {
   );
   const [data, setData] = useState({});
   const [menuOpen, setMenuOpen] = useState(false);
+  const [role, setRole] = useState("user");
 
   const navigate = useNavigate();
 
-  const fetchLuckyNumber = async () => {
+  const fetchDashboardData = async () => {
     try {
       const response = await axios.get("/api/v1/dashboard", {
         headers: { Authorization: `Bearer ${token}` },
@@ -23,19 +24,32 @@ const Dashboard = () => {
         msg: response.data.msg,
         luckyNumber: response.data.secret,
       });
+
+      // Decode role from token (simple base64 decode of payload)
+      if (token) {
+        try {
+          const payload = JSON.parse(atob(token.split('.')[1]));
+          setRole(payload.role || "user");
+        } catch (e) {
+          console.error("Error decoding token", e);
+        }
+      }
+
     } catch (error) {
       toast.error(error.message);
+      localStorage.removeItem("auth");
+      navigate("/login");
     }
   };
 
   useEffect(() => {
-    fetchLuckyNumber();
-
     if (token === "") {
       navigate("/login");
       toast.warn("Please login first to access dashboard");
+    } else {
+      fetchDashboardData();
     }
-  }, [token]);
+  }, [token, navigate]);
 
   return (
     <div className="dashboard-main">
@@ -82,19 +96,33 @@ const Dashboard = () => {
               className="nav-item"
               onClick={() => setMenuOpen(false)}
             >
-              Attendance List
+              {role === "admin" ? "Attendance List" : "My Attendance"}
             </Link>
           </li>
 
-          <li>
-            <Link
-              to="/dashboard/reports"
-              className="nav-item"
-              onClick={() => setMenuOpen(false)}
-            >
-              Reports
-            </Link>
-          </li>
+          {role === "admin" && (
+            <>
+              <li>
+                <Link
+                  to="/dashboard/reports"
+                  className="nav-item"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  Reports
+                </Link>
+              </li>
+
+              <li>
+                <Link
+                  to="/dashboard/users"
+                  className="nav-item"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  Users
+                </Link>
+              </li>
+            </>
+          )}
 
           <li>
             <Link
@@ -128,7 +156,7 @@ const Dashboard = () => {
       <div className="dashboard-content">
         <Outlet />
       </div>
-    </div>
+    </div >
   );
 };
 

@@ -10,6 +10,11 @@ const app = express();
 // Routes
 const userRoutes = require("./routes/user");
 const attendanceRoutes = require("./routes/attendance");
+const dashboardRoutes = require("./routes/dashboard");
+const reportRoutes = require("./routes/reports");
+
+// Cron Jobs
+const { scheduleDailyReport } = require("./utils/cronJobs");
 
 // Middlewares
 app.use(express.json());
@@ -19,6 +24,8 @@ app.use(cors());
 // Mount user routes at /api/v1 so endpoints become /api/v1/login, /api/v1/register
 app.use("/api/v1", userRoutes);                 // Example: /api/v1/register
 app.use("/api/v1/attendance", attendanceRoutes); // Example: /api/v1/attendance/mark
+app.use("/api/v1/dashboard", dashboardRoutes);   // Example: /api/v1/dashboard/admin-stats
+app.use("/api/v1/reports", reportRoutes);        // Example: /api/v1/reports/monthly-report
 
 const port = process.env.PORT || 3000;
 
@@ -27,6 +34,9 @@ const start = async () => {
     await connectDB(process.env.MONGO_URI);
     app.listen(port, () => {
       console.log(`Server is listening on port ${port}`);
+
+      // Start cron jobs
+      scheduleDailyReport();
     });
   } catch (error) {
     console.log(error);

@@ -12,7 +12,7 @@ export default function Profile() {
   useEffect(() => {
     async function loadProfile() {
       try {
-        const res = await axios.get("/api/v1/profile", {
+        const res = await axios.get("/api/v1/users/profile", {
           headers: { Authorization: `Bearer ${token}` },
         });
         setUser(res.data);
@@ -30,7 +30,7 @@ export default function Profile() {
 
     try {
       await axios.put(
-        "/api/v1/profile",
+        "/api/v1/users/profile", // Updated endpoint
         { name, password },
         { headers: { Authorization: `Bearer ${token}` } }
       );

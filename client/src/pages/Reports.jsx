@@ -1,81 +1,230 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import axios from "axios";
+import { toast } from "react-toastify";
 import "../styles/Reports.css";
 
 export default function Reports() {
-  const [month, setMonth] = useState("");
-  const [report, setReport] = useState(null);
-  const token = JSON.parse(localStorage.getItem("auth")) || "";
+  const [loading, setLoading] = useState(false);
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [reportData, setReportData] = useState(null);
 
-  const fetchReport = async () => {
-    if (!month) return;
+  const token = JSON.parse(localStorage.getItem("auth")) || localStorage.getItem("token") || "";
 
+  // Generate years array (last 5 years)
+  const currentYear = new Date().getFullYear();
+  const years = Array.from({ length: 5 }, (_, i) => currentYear - i);
+
+  const months = [
+    { value: 1, label: "January" },
+    { value: 2, label: "February" },
+    { value: 3, label: "March" },
+    { value: 4, label: "April" },
+    { value: 5, label: "May" },
+    { value: 6, label: "June" },
+    { value: 7, label: "July" },
+    { value: 8, label: "August" },
+    { value: 9, label: "September" },
+    { value: 10, label: "October" },
+    { value: 11, label: "November" },
+    { value: 12, label: "December" }
+  ];
+
+  // Send Daily Report
+  const handleSendDailyReport = async () => {
+    setLoading(true);
     try {
-      const res = await axios.get(`/api/v1/attendance/report?month=${month}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setReport(res.data);
+      const res = await axios.post(
+        "/api/v1/reports/daily-report",
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      toast.success(res.data.message || "Daily report sent successfully");
     } catch (err) {
-      console.error("REPORT ERROR:", err);
+      toast.error(err.response?.data?.message || "Failed to send daily report");
     }
+    setLoading(false);
   };
 
-  useEffect(() => {
-    fetchReport();
-  }, [month]);
+  // View Monthly Report
+  const handleViewMonthlyReport = async () => {
+    setLoading(true);
+    try {
+      const res = await axios.get(
+        `/api/v1/reports/monthly-report?year=${selectedYear}&month=${selectedMonth}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setReportData(res.data);
+      toast.success("Report generated successfully");
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to generate report");
+    }
+    setLoading(false);
+  };
+
+  // Download Excel
+  const handleDownloadExcel = async () => {
+    setLoading(true);
+    try {
+      const res = await axios.get(
+        `/api/v1/reports/export-excel?year=${selectedYear}&month=${selectedMonth}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+          responseType: "blob"
+        }
+      );
+
+      // Create download link
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `attendance_${selectedYear}_${selectedMonth}.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+
+      toast.success("Excel file downloaded successfully");
+    } catch (err) {
+      toast.error("Failed to download Excel file");
+    }
+    setLoading(false);
+  };
 
   return (
-    <div className="reports-container">
-      <h1 className="title">Attendance Reports</h1>
-      <p className="subtitle">View your monthly attendance performance</p>
-
-      {/* Month Selector */}
-      <div className="report-filter">
-        <label>Select Month</label>
-        <select value={month} onChange={(e) => setMonth(e.target.value)}>
-          <option value="">-- Choose Month --</option>
-          <option value="1">January</option>
-          <option value="2">February</option>
-          <option value="3">March</option>
-          <option value="4">April</option>
-          <option value="5">May</option>
-          <option value="6">June</option>
-          <option value="7">July</option>
-          <option value="8">August</option>
-          <option value="9">September</option>
-          <option value="10">October</option>
-          <option value="11">November</option>
-          <option value="12">December</option>
-        </select>
+    <div className="reports-page">
+      <div className="reports-header">
+        <h1>Reports & Analytics</h1>
+        <p>Generate and download attendance reports</p>
       </div>
 
-      {/* Report Results */}
-      {report && (
-        <div className="report-cards">
-          <div className="report-card">
-            <h3>Total Present Days</h3>
-            <p className="value">{report.presentDays}</p>
+      {/* Daily Report Section */}
+      <div className="card">
+        <div className="card-header">
+          <h3>📧 Daily Email Report</h3>
+        </div>
+        <div className="card-body">
+          <p className="card-description">
+            Send today's attendance summary to all admin users via email.
+          </p>
+          <button
+            className="btn btn-primary"
+            onClick={handleSendDailyReport}
+            disabled={loading}
+          >
+            {loading ? "Sending..." : "Send Daily Report Now"}
+          </button>
+          <p className="help-text">
+            💡 Daily reports are automatically sent every day at 6:00 PM
+          </p>
+        </div>
+      </div>
+
+      {/* Monthly Report Section */}
+      <div className="card">
+        <div className="card-header">
+          <h3>📊 Monthly Attendance Report</h3>
+        </div>
+        <div className="card-body">
+          <p className="card-description">
+            Generate detailed monthly attendance reports with export options.
+          </p>
+
+          {/* Month/Year Selector */}
+          <div className="report-filters">
+            <div className="form-group">
+              <label className="form-label">Month</label>
+              <select
+                className="form-select"
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
+              >
+                {months.map(month => (
+                  <option key={month.value} value={month.value}>
+                    {month.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Year</label>
+              <select
+                className="form-select"
+                value={selectedYear}
+                onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+              >
+                {years.map(year => (
+                  <option key={year} value={year}>
+                    {year}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
-          <div className="report-card">
-            <h3>Total Absent Days</h3>
-            <p className="value">{report.absentDays}</p>
-          </div>
-
-          <div className="report-card">
-            <h3>Total Working Hours</h3>
-            <p className="value">{report.totalHours}</p>
-          </div>
-
-          <div className="report-card">
-            <h3>Average Hours / Day</h3>
-            <p className="value">{report.averageHours}</p>
+          {/* Action Buttons */}
+          <div className="report-actions">
+            <button
+              className="btn btn-primary"
+              onClick={handleViewMonthlyReport}
+              disabled={loading}
+            >
+              {loading ? "Generating..." : "View Report"}
+            </button>
+            <button
+              className="btn btn-success"
+              onClick={handleDownloadExcel}
+              disabled={loading}
+            >
+              📥 Download Excel
+            </button>
           </div>
         </div>
-      )}
+      </div>
 
-      {!month && (
-        <div className="no-report">Please select a month to view the report.</div>
+      {/* Report Data Display */}
+      {reportData && (
+        <div className="card">
+          <div className="card-header">
+            <h3>Report: {reportData.monthName} {reportData.year}</h3>
+          </div>
+          <div className="card-body">
+            <div className="table-container">
+              <table className="table-responsive">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Days Present</th>
+                    <th>Days Absent</th>
+                    <th>Total Hours</th>
+                    <th>Avg Hours/Day</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {reportData.data.map((user, index) => (
+                    <tr key={index}>
+                      <td>{user.name}</td>
+                      <td>{user.email}</td>
+                      <td>
+                        <span className="badge badge-success">
+                          {user.daysPresent}
+                        </span>
+                      </td>
+                      <td>
+                        <span className="badge badge-danger">
+                          {user.daysAbsent}
+                        </span>
+                      </td>
+                      <td>{user.totalWorkingHours.toFixed(2)} hrs</td>
+                      <td>{user.averageWorkingHours.toFixed(2)} hrs</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

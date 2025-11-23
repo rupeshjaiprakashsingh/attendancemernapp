@@ -1,73 +1,76 @@
 /* ========================================
-   ATTENDANCE LIST PAGE CSS
+   USER MANAGEMENT PAGE CSS
    ======================================== */
 
-/* Main Page Container */
-.attendance-list-page {
+/* Main Container */
+.user-management-container {
   padding: var(--spacing-xl);
   min-height: 100vh;
 }
 
-.attendance-list-page h2 {
+.user-management-header {
   margin-bottom: var(--spacing-lg);
   color: var(--text-primary);
   font-size: 1.5rem;
   font-weight: 700;
 }
 
-/* Filter Row */
-.filter-row {
-  margin-bottom: var(--spacing-lg);
+/* Controls Section */
+.controls {
   display: flex;
-  gap: var(--spacing-md);
+  justify-content: space-between;
   align-items: center;
-  flex-wrap: wrap;
+  margin-bottom: var(--spacing-lg);
   background: var(--surface);
   padding: var(--spacing-lg);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
+  gap: var(--spacing-md);
+  flex-wrap: wrap;
   border: 1px solid var(--border);
 }
 
-.filter-row input,
-.filter-row select {
-  padding: 0.5rem 0.75rem;
-  border-radius: var(--radius-md);
+.search-input {
+  padding: 0.625rem 1rem;
+  min-width: 250px;
+  flex: 1;
+  max-width: 400px;
   border: 1px solid var(--border);
+  border-radius: var(--radius-md);
   font-size: 0.875rem;
   background-color: var(--surface);
   color: var(--text-primary);
   transition: var(--transition);
 }
 
-.filter-row input:focus,
-.filter-row select:focus {
+.search-input:focus {
   outline: none;
   border-color: var(--primary);
   box-shadow: 0 0 0 3px var(--primary-light);
 }
 
-/* Table Wrapper */
-.table-wrap {
+/* Table Container */
+.table-responsive {
   background: var(--surface);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
   overflow-x: auto;
   border: 1px solid var(--border);
+  margin-bottom: var(--spacing-lg);
 }
 
 /* Table Styling */
-.attendance-table {
+.table {
   width: 100%;
   border-collapse: collapse;
 }
 
-.attendance-table thead {
+.table thead {
   background-color: var(--background);
   border-bottom: 2px solid var(--border);
 }
 
-.attendance-table th {
+.table th {
   padding: 0.75rem 1rem;
   text-align: left;
   font-size: 0.75rem;
@@ -78,38 +81,50 @@
   white-space: nowrap;
 }
 
-.attendance-table td {
+.table td {
   padding: 0.75rem 1rem;
   border-bottom: 1px solid var(--border);
   color: var(--text-primary);
   font-size: 0.875rem;
 }
 
-.attendance-table tbody tr:hover {
+.table tbody tr:hover {
   background-color: var(--surface-hover);
 }
 
-.attendance-table tbody tr:last-child td {
+.table tbody tr:last-child td {
   border-bottom: none;
 }
 
-.address-cell {
-  max-width: 200px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+/* Role Badge Styles */
+.role-badge {
+  padding: 0.25rem 0.75rem;
+  border-radius: var(--radius-md);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.role-admin {
+  background-color: var(--primary-light);
+  color: var(--primary);
+}
+
+.role-user {
+  background-color: var(--success-light);
+  color: var(--success);
 }
 
 /* Pagination */
-.pager {
-  margin-top: var(--spacing-lg);
+.pagination {
   display: flex;
   align-items: center;
   gap: var(--spacing-md);
   justify-content: center;
+  margin-top: var(--spacing-lg);
 }
 
-.pager button {
+.pagination button {
   padding: 0.5rem 1rem;
   border: 1px solid var(--border);
   background-color: var(--surface);
@@ -120,29 +135,21 @@
   font-weight: 500;
 }
 
-.pager button:hover:not(:disabled) {
+.pagination button:hover:not(:disabled) {
   background-color: var(--surface-hover);
   border-color: var(--primary);
   color: var(--primary);
 }
 
-.pager button:disabled {
+.pagination button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
 
-.pager span {
+.pagination span {
   font-size: 0.875rem;
   color: var(--text-secondary);
   font-weight: 500;
-}
-
-/* Loading State */
-.loading {
-  text-align: center;
-  padding: var(--spacing-xl);
-  color: var(--text-secondary);
-  font-size: 1rem;
 }
 
 /* ========== MODAL STYLES ========== */
@@ -173,26 +180,28 @@
   max-height: 90vh;
   overflow-y: auto;
   padding: var(--spacing-xl);
-  animation: modalSlideIn 0.3s ease-out;
+  animation: slideIn 0.3s ease-out;
 }
 
-@keyframes modalSlideIn {
+@keyframes slideIn {
   from {
-    opacity: 0;
     transform: translateY(-20px);
+    opacity: 0;
   }
 
   to {
-    opacity: 1;
     transform: translateY(0);
+    opacity: 1;
   }
 }
 
 .modal-content h3 {
   margin: 0 0 var(--spacing-lg) 0;
+  color: var(--text-primary);
   font-size: 1.25rem;
   font-weight: 700;
-  color: var(--text-primary);
+  padding-bottom: var(--spacing-md);
+  border-bottom: 1px solid var(--border);
 }
 
 /* Modal Form Groups */
@@ -200,7 +209,7 @@
   margin-bottom: var(--spacing-lg);
 }
 
-.modal-content .form-label {
+.modal-content .form-group label {
   display: block;
   margin-bottom: var(--spacing-sm);
   font-size: 0.875rem;
@@ -208,8 +217,8 @@
   color: var(--text-primary);
 }
 
-.modal-content .form-control,
-.modal-content .form-select {
+.modal-content .form-group input,
+.modal-content .form-group select {
   width: 100%;
   padding: var(--spacing-md);
   font-size: 0.875rem;
@@ -221,8 +230,8 @@
   font-family: inherit;
 }
 
-.modal-content .form-control:focus,
-.modal-content .form-select:focus {
+.modal-content .form-group input:focus,
+.modal-content .form-group select:focus {
   outline: none;
   border-color: var(--primary);
   box-shadow: 0 0 0 3px var(--primary-light);
@@ -247,43 +256,34 @@
 
 /* ========== RESPONSIVE DESIGN ========== */
 @media (max-width: 768px) {
-  .attendance-list-page {
+  .user-management-container {
     padding: var(--spacing-md);
   }
 
-  .filter-row {
+  .controls {
     flex-direction: column;
     align-items: stretch;
   }
 
-  .filter-row input,
-  .filter-row select {
+  .search-input {
+    max-width: 100%;
     width: 100%;
   }
 
-  .table-wrap {
+  .table-responsive {
     border-radius: 0;
     margin: 0 calc(-1 * var(--spacing-md));
   }
 
-  .attendance-table th,
-  .attendance-table td {
+  .table th,
+  .table td {
     padding: 0.5rem;
     font-size: 0.75rem;
   }
 
-  .address-cell {
-    max-width: 120px;
-  }
-
-  .pager {
-    flex-wrap: wrap;
-  }
-
   .modal-content {
-    max-width: 100%;
-    margin: var(--spacing-sm);
     padding: var(--spacing-lg);
+    margin: var(--spacing-sm);
   }
 
   .modal-actions {

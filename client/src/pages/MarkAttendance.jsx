@@ -148,7 +148,15 @@ export default function Attendance() {
               <option value="OUT">OUT</option>
             </select>
           </div>
-
+         <div className="form-group">
+            <label>Remarks</label>
+            <input
+              type="text"
+              value={form.remarks}
+              onChange={(e) => setForm({ ...form, remarks: e.target.value })}
+              placeholder="Optional remarks"
+            />
+          </div>
           <div className="form-group">
             <label>Latitude</label>
             <input type="text" value={form.latitude} readOnly />
@@ -189,15 +197,7 @@ export default function Attendance() {
             <input type="text" value={form.deviceId} readOnly />
           </div>
 
-          <div className="form-group">
-            <label>Remarks</label>
-            <input
-              type="text"
-              value={form.remarks}
-              onChange={(e) => setForm({ ...form, remarks: e.target.value })}
-              placeholder="Optional remarks"
-            />
-          </div>
+         
 
           <div className="attendance-buttons">
             <button
