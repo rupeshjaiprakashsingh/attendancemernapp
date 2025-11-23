@@ -10,7 +10,7 @@ export default function Attendance() {
     attendanceType: "IN",
     latitude: "",
     longitude: "",
-    deviceTime: new Date().toISOString(),
+    // deviceTime: new Date().toISOString(), // Removed: Using Server Time
     deviceId: "",
     locationAccuracy: "",
     address: "",
@@ -39,7 +39,7 @@ export default function Attendance() {
         const battery = await navigator.getBattery();
         setForm((p) => ({ ...p, batteryPercentage: Math.round(battery.level * 100) }));
       }
-    } catch {}
+    } catch { }
   };
 
   // Fetch Network Type
@@ -47,7 +47,7 @@ export default function Attendance() {
     try {
       const type = navigator.connection?.effectiveType || "";
       setForm((p) => ({ ...p, networkType: type.toUpperCase() }));
-    } catch {}
+    } catch { }
   };
 
   // Reverse Geocoding
@@ -57,7 +57,7 @@ export default function Attendance() {
         `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`
       );
       setForm((p) => ({ ...p, address: res.data.display_name || "" }));
-    } catch {}
+    } catch { }
   };
 
   // Fetch GPS Location
@@ -121,17 +121,17 @@ export default function Attendance() {
 
   return (
     <div className="attendance-container">
-     
-          <div className="attendance-buttons">
-            <button
-              type="button"
-              className="attendance-btn"
-              disabled={loading}
-              onClick={markAttendance}
-            >
-              {loading ? "Submitting..." : "Mark Attendance"}
-            </button>
-          </div>
+
+      <div className="attendance-buttons">
+        <button
+          type="button"
+          className="attendance-btn"
+          disabled={loading}
+          onClick={markAttendance}
+        >
+          {loading ? "Submitting..." : "Mark Attendance"}
+        </button>
+      </div>
 
       <div className="attendance-content">
         <h2>Mark Attendance</h2>
@@ -148,7 +148,7 @@ export default function Attendance() {
               <option value="OUT">OUT</option>
             </select>
           </div>
-         <div className="form-group">
+          <div className="form-group">
             <label>Remarks</label>
             <input
               type="text"
@@ -168,13 +168,29 @@ export default function Attendance() {
           </div>
 
           <div className="form-group">
-            <label>Device Time</label>
-            <input type="text" value={form.deviceTime} readOnly />
+            <label>Time</label>
+            <input type="text" value="Server Time (IST)" readOnly style={{ backgroundColor: '#eef2ff', color: '#3b82f6', fontWeight: 'bold' }} />
           </div>
 
           <div className="form-group">
-            <label>Address</label>
-            <textarea value={form.address} readOnly />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '5px' }}>
+              <label>Address</label>
+              <button
+                type="button"
+                onClick={(e) => { e.preventDefault(); fetchLocation(); }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#3b82f6',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                  fontWeight: '600'
+                }}
+              >
+                ↻ Refresh Location
+              </button>
+            </div>
+            <textarea value={form.address} readOnly placeholder="Fetching address..." />
           </div>
 
           <div className="form-group">
@@ -197,7 +213,7 @@ export default function Attendance() {
             <input type="text" value={form.deviceId} readOnly />
           </div>
 
-         
+
 
           <div className="attendance-buttons">
             <button
@@ -211,7 +227,7 @@ export default function Attendance() {
           </div>
         </form>
 
-       
+
       </div>
     </div>
   );

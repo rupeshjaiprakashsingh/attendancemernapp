@@ -198,5 +198,18 @@ module.exports = {
     } catch (error) {
       res.status(500).json({ msg: error.message });
     }
+  },
+  resetDevice: async (req, res) => {
+    try {
+      const user = await User.findById(req.params.id);
+      if (!user) {
+        return res.status(404).json({ msg: "User not found" });
+      }
+      user.deviceId = null;
+      await user.save();
+      res.status(200).json({ msg: "Device ID reset successfully" });
+    } catch (error) {
+      res.status(500).json({ msg: error.message });
+    }
   }
 };

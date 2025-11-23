@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+const authMiddleware = require("../middleware/auth");
 
 const {
     login,
@@ -11,17 +12,18 @@ const {
     updateUser,
     deleteUser,
     getProfile,
-    updateProfile
+    updateProfile,
+    resetDevice
 } = require("../controllers/user");
-const authMiddleware = require('../middleware/auth')
 
 router.route("/login").post(login);
 router.route("/register").post(register);
 router.route("/dashboard").get(authMiddleware, dashboard);
 
 // Admin User CRUD Routes
-router.route("/users").get(getAllUsers).post(createUser);
-router.route("/users/:id").get(getUserById).put(updateUser).delete(deleteUser);
+router.route("/users").get(authMiddleware, getAllUsers).post(authMiddleware, createUser);
+router.route("/users/:id").get(authMiddleware, getUserById).put(authMiddleware, updateUser).delete(authMiddleware, deleteUser);
+router.put("/users/:id/reset-device", authMiddleware, resetDevice);
 
 // Profile Routes
 router.route("/profile").get(authMiddleware, getProfile).put(authMiddleware, updateProfile);

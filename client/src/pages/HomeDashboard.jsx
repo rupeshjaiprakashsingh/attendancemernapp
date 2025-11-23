@@ -278,7 +278,7 @@ function UserDashboard({ stats, navigate }) {
 
       {/* Quick Actions */}
       <div className="quick-actions">
-        <button className="btn btn-primary btn-lg" onClick={() => navigate("/dashboard/mark-attendance")}>
+        <button className="btn btn-primary btn-lg" onClick={() => navigate("/dashboard/attendance")}>
           📍 Mark Attendance
         </button>
         <button className="btn btn-secondary" onClick={() => navigate("/dashboard/attendance-list")}>

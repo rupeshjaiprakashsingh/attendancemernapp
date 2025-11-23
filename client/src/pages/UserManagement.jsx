@@ -58,6 +58,20 @@ const UserManagement = () => {
         }
     };
 
+    const handleResetDevice = async (id) => {
+        if (window.confirm("Are you sure you want to reset the device lock for this user?")) {
+            try {
+                await axios.put(`/api/v1/users/${id}/reset-device`, {}, {
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+                toast.success("Device ID reset successfully");
+                fetchUsers();
+            } catch (error) {
+                toast.error(error.response?.data?.msg || "Error resetting device");
+            }
+        }
+    };
+
     const handleSave = async (e) => {
         e.preventDefault();
         try {
@@ -159,6 +173,13 @@ const UserManagement = () => {
                                             onClick={() => handleDelete(user._id)}
                                         >
                                             Delete
+                                        </button>
+                                        <button
+                                            className="btn btn-sm btn-info"
+                                            onClick={() => handleResetDevice(user._id)}
+                                            style={{ marginLeft: "5px", backgroundColor: "#17a2b8", borderColor: "#17a2b8", color: "white" }}
+                                        >
+                                            Reset Device
                                         </button>
                                     </td>
                                 </tr>

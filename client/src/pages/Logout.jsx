@@ -1,24 +1,21 @@
-import React, { useEffect } from 'react'
+import React, { useEffect } from 'react';
 import "../styles/Logout.css";
 import { useNavigate } from 'react-router-dom';
 
 const Logout = () => {
+  const navigate = useNavigate();
 
-    const navigate = useNavigate();
-    
-    useEffect(() => {
-        localStorage.removeItem("auth");
-        setTimeout(() => {
-            navigate("/");
-        }, 3000);
-    }, []);
+  useEffect(() => {
+    localStorage.removeItem("auth");
+    navigate("/login");
+  }, [navigate]);
 
   return (
     <div className='logout-main'>
-    <h1>Logout Successful!</h1>
-    <p>You will be redirected to the landing page in 3 seconds...</p>
-  </div>
-  )
-}
+      <h1>Logout Successful!</h1>
+      <p>Redirecting to login...</p>
+    </div>
+  );
+};
 
-export default Logout
+export default Logout;

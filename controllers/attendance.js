@@ -21,15 +21,28 @@ exports.markAttendance = async (req, res) => {
       remarks,
     } = req.body;
 
-    const startOfDay = new Date();
-    startOfDay.setHours(0, 0, 0, 0);
-    const endOfDay = new Date();
-    endOfDay.setHours(23, 59, 59, 999);
+    // Use Server Time (IST)
+    const serverTime = new Date();
+    // Adjust for IST (UTC+5:30) if server is in UTC, or just use server time if it's already local.
+    // For consistency, we'll store the Date object as is (UTC in Mongo), but calculations for "today" will be IST based.
 
-    console.log(`[Attendance] Request: ${attendanceType}, User: ${userId}, Time: ${new Date().toISOString()}`);
+    // IST Offset in milliseconds (5 hours 30 minutes)
+    const IST_OFFSET = 5.5 * 60 * 60 * 1000;
+    const istDate = new Date(serverTime.getTime() + IST_OFFSET);
+
+    const startOfDay = new Date(istDate);
+    startOfDay.setUTCHours(0, 0, 0, 0);
+    startOfDay.setTime(startOfDay.getTime() - IST_OFFSET); // Convert back to UTC for query
+
+    const endOfDay = new Date(istDate);
+    endOfDay.setUTCHours(23, 59, 59, 999);
+    endOfDay.setTime(endOfDay.getTime() - IST_OFFSET); // Convert back to UTC for query
+
+    console.log(`[Attendance] Request: ${attendanceType}, User: ${userId}, Server Time: ${serverTime.toISOString()}`);
 
     // -------- Mandatory Validation ----------
-    if (!attendanceType || !latitude || !longitude || !deviceTime || !deviceId) {
+    // Removed deviceTime from mandatory check as we override it
+    if (!attendanceType || !latitude || !longitude || !deviceId) {
       return res.status(400).json({ message: "Mandatory fields missing" });
     }
 
@@ -79,6 +92,42 @@ exports.markAttendance = async (req, res) => {
       }
     }
 
+    // ---------------------------------------------------------
+    // PERMANENT DEVICE LOCK (One User = One Device Forever)
+    // ---------------------------------------------------------
+    const currentUser = await User.findById(userId);
+
+    if (!currentUser.deviceId) {
+      // First time marking attendance? Bind this device to user.
+      currentUser.deviceId = deviceId;
+      await currentUser.save();
+    } else if (currentUser.deviceId !== deviceId) {
+      // Device mismatch! Block access.
+      console.log(`[Attendance] Device Mismatch! User ${userId} tried device ${deviceId} but is locked to ${currentUser.deviceId}`);
+      return res.status(403).json({
+        message: "Device mismatch. You are locked to another device. Contact Admin to reset."
+      });
+    }
+
+    // ---------------------------------------------------------
+    // PREVENT PROXY ATTENDANCE (One Device = One User Per Day)
+    // ---------------------------------------------------------
+    const deviceUsedByOther = await Attendance.findOne({
+      deviceId,
+      userId: { $ne: userId }, // Not the current user
+      createdAt: {
+        $gte: startOfDay,
+        $lte: endOfDay,
+      },
+    });
+
+    if (deviceUsedByOther) {
+      console.log(`[Attendance] Proxy Attempt Blocked! Device ${deviceId} used by another user today.`);
+      return res.status(403).json({
+        message: "This device has already been used by another user today. Proxy attendance is not allowed."
+      });
+    }
+
     // Geofence Validation
     const insideFence = isInsideGeofence(latitude, longitude);
 
@@ -97,7 +146,7 @@ exports.markAttendance = async (req, res) => {
       });
 
       if (inRecord) {
-        const ms = new Date(deviceTime) - new Date(inRecord.deviceTime);
+        const ms = serverTime - new Date(inRecord.deviceTime);
         workingHours = ms / (1000 * 60 * 60); // Hours
 
         if (workingHours > 6) {
@@ -118,7 +167,7 @@ exports.markAttendance = async (req, res) => {
       attendanceType,
       latitude,
       longitude,
-      deviceTime,
+      deviceTime: serverTime, // Overwrite with Server Time
       deviceId,
       locationAccuracy,
       address,

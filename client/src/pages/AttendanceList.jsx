@@ -316,6 +316,7 @@ export default function AttendanceList() {
                   {userRole === "admin" && <th>Name</th>}
                   <th>Date</th>
                   <th>Type</th>
+                  <th>Device ID</th>
                   <th>IN Time</th>
                   <th>OUT Time</th>
                   <th>Working Hours</th>
@@ -399,6 +400,13 @@ export default function AttendanceList() {
                               </span>
                             )}
                           </div>
+                        </td>
+
+                        {/* DEVICE ID */}
+                        <td>
+                          <span title={r.inRecord?.deviceId || r.outRecord?.deviceId || "-"}>
+                            {r.inRecord?.deviceId || r.outRecord?.deviceId || "-"}
+                          </span>
                         </td>
 
                         {/* IN TIME */}

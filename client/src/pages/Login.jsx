@@ -11,7 +11,7 @@ import { toast } from "react-toastify";
 
 const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
-  const [ token, setToken ] = useState(JSON.parse(localStorage.getItem("auth")) || "");
+  const [token, setToken] = useState(JSON.parse(localStorage.getItem("auth")) || "");
   const navigate = useNavigate();
 
 
@@ -44,7 +44,7 @@ const Login = () => {
   };
 
   useEffect(() => {
-    if(token !== ""){
+    if (token !== "") {
       toast.success("You already logged in");
       navigate("/dashboard");
     }
@@ -53,7 +53,11 @@ const Login = () => {
   return (
     <div className="login-main">
       <div className="login-left">
-        <img src={Image} alt="" />
+        <div className="auth-illustration">
+          <img src={Logo} alt="Logo" className="auth-logo-large" />
+          <h1>Welcome Back!</h1>
+          <p>Streamline your workforce management with our secure attendance system.</p>
+        </div>
       </div>
       <div className="login-right">
         <div className="login-right-container">
