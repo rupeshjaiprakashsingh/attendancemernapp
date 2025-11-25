@@ -21,6 +21,7 @@ export default function Attendance() {
 
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState("");
+  const [todayRecord, setTodayRecord] = useState(null); // Store today's attendance
 
   // Generate device ID (stored permanently)
   const generateDeviceId = () => {
@@ -84,16 +85,41 @@ export default function Attendance() {
     );
   };
 
+  const token =
+    JSON.parse(localStorage.getItem("auth")) || localStorage.getItem("token") || "";
+
+  // Fetch Today's Attendance to check previous IN time
+  const fetchTodayAttendance = async () => {
+    if (!token) return;
+    try {
+      // Decode token to get userId (simple decode payload)
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      const userId = payload.id || payload._id;
+
+      // Use local date to ensure we get the correct "today" relative to the user
+      const now = new Date();
+      const todayStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+
+      const res = await axios.get(`/api/v1/attendance/day/${userId}?date=${todayStr}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (res.data && res.data.in) {
+        setTodayRecord(res.data);
+      }
+    } catch (error) {
+      console.error("Error fetching today's attendance", error);
+    }
+  };
+
   // On component mount
   useEffect(() => {
     generateDeviceId();
     fetchBattery();
     fetchNetwork();
     fetchLocation();
+    fetchTodayAttendance();
   }, []);
-
-  const token =
-    JSON.parse(localStorage.getItem("auth")) || localStorage.getItem("token") || "";
 
   // Submit Attendance
   const markAttendance = async () => {
@@ -101,6 +127,30 @@ export default function Attendance() {
     setMsg("");
 
     try {
+      // ---------------------------------------------------------
+      // 4-HOUR CHECK-OUT RESTRICTION
+      // ---------------------------------------------------------
+      if (form.attendanceType === "OUT") {
+        if (!todayRecord || !todayRecord.in) {
+          // If we don't have local record, maybe let backend handle "Must mark IN first"
+          // But if we do have it, we check time.
+          // Ideally we should re-fetch to be sure, but for UI feedback we use state.
+        } else {
+          const inTime = new Date(todayRecord.in.deviceTime).getTime();
+          const now = new Date().getTime();
+          const diffMs = now - inTime;
+          const diffHours = diffMs / (1000 * 60 * 60);
+
+          if (diffHours < 4) {
+            const msg = "Check out is allowed after 4 hour of check in";
+            setMsg(msg);
+            toast.error(msg);
+            setLoading(false);
+            return;
+          }
+        }
+      }
+
       const res = await axios.post(
         "/api/v1/attendance/mark",
         { ...form },

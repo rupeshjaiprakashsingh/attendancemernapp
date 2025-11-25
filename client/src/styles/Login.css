@@ -184,3 +184,249 @@ button[type='submit'] {
 .login-bottom-p a:hover {
   text-decoration: underline;
 }
+/* MAIN LAYOUT */
+.login-main {
+  display: flex;
+  min-height: 100vh;
+}
+
+/* LEFT SIDE */
+.login-left {
+  flex: 1;
+  background-color: #E9E9E9;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.login-left img {
+  width: 320px;
+}
+
+/* RIGHT SIDE */
+.login-right {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.login-right-container {
+  width: 80%;
+  max-width: 420px;
+}
+
+/* LOGO */
+.login-logo {
+  text-align: center;
+  margin-bottom: 10px;
+}
+
+.login-logo img {
+  width: 50px;
+}
+
+/* HEADER */
+.login-center {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.login-center h2 {
+  font-size: 28px;
+  margin-bottom: 5px;
+}
+
+.login-center p {
+  font-size: 15px;
+  margin-bottom: 20px;
+}
+
+/* INPUTS */
+form input[type="email"],
+form input[type="password"],
+form input[type="text"] {
+  width: 100%;
+  padding: 12px;
+  margin: 6px 0;
+  border: none;
+  border-bottom: 1px solid #999;
+  outline: none;
+  transition: border-color 0.2s;
+  border-radius: 10px;
+  background: #eef4ff;
+}
+
+form input:focus {
+  border-bottom: 1px solid #000;
+}
+
+/* PASSWORD FIELD */
+.pass-input-div {
+  position: relative;
+}
+
+.pass-input-div svg {
+  position: absolute;
+  right: 10px;
+  bottom: 12px;
+  cursor: pointer;
+  font-size: 18px;
+}
+
+/* OPTIONS */
+.login-center-options {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 10px;
+}
+
+.remember-div {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.forgot-pass-link {
+  text-decoration: none;
+  font-size: 13px;
+}
+
+.forgot-pass-link:hover {
+  text-decoration: underline;
+}
+
+/* BUTTONS */
+.login-center-buttons {
+  margin-top: 25px;
+  display: flex;
+  flex-direction: column;
+  row-gap: 12px;
+}
+
+.login-center-buttons button {
+  width: 100%;
+  padding: 14px;
+  border-radius: 30px;
+  font-size: 15px;
+  cursor: pointer;
+  font-weight: 600;
+  border: none;
+}
+
+.login-center-buttons button:nth-child(1) {
+  background: #1b64f2;
+  color: #fff;
+}
+
+.login-center-buttons button:nth-child(1):hover {
+  background: #134dc0;
+}
+
+.login-center-buttons button:nth-child(2) {
+  background: #F0F0F0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.login-center-buttons button:nth-child(2) img {
+  width: 26px;
+}
+
+.login-center-buttons button:nth-child(2):hover {
+  background: #dcdcdc;
+}
+
+/* FOOTER */
+.login-bottom-p {
+  margin-top: 25px;
+  text-align: center;
+  font-size: 15px;
+}
+
+/* ERRORS */
+.input-error {
+  border-bottom: 2px solid red !important;
+}
+
+.error-text {
+  color: red;
+  font-size: 12px;
+  text-align: left;
+  margin-top: -2px;
+  margin-bottom: 4px;
+}
+
+/* RESPONSIVE DESIGN */
+
+/* Tablet */
+@media (max-width: 1024px) {
+  .login-left img {
+    width: 260px;
+  }
+
+  .login-center h2 {
+    font-size: 26px;
+  }
+}
+
+/* Large Mobile */
+@media (max-width: 768px) {
+  .login-main {
+    flex-direction: column;
+  }
+
+  .login-left {
+    height: 200px;
+  }
+
+  .login-left img {
+    width: 200px;
+  }
+
+  .login-right-container {
+    width: 90%;
+  }
+}
+
+/* Mobile */
+@media (max-width: 600px) {
+  .login-left {
+    display: none;
+  }
+
+  .login-right {
+    width: 100%;
+    padding: 20px 0;
+  }
+
+  .login-right-container {
+    width: 92%;
+  }
+
+  .login-center h2 {
+    font-size: 24px;
+  }
+
+  form input {
+    padding: 10px;
+  }
+
+  .login-center-buttons button {
+    padding: 12px;
+    font-size: 14px;
+  }
+}
+
+/* Small Mobile */
+@media (max-width: 400px) {
+  .login-center h2 {
+    font-size: 22px;
+  }
+
+  form input {
+    padding: 8px;
+  }
+}

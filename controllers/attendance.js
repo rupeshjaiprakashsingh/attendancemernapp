@@ -316,8 +316,8 @@ exports.getAllAttendance = async (req, res) => {
         }
       },
 
-      // Stage 8: Sort by date descending
-      { $sort: { dateStr: -1 } },
+      // Stage 8: Sort by date descending, then by Name ascending
+      { $sort: { dateStr: -1, "userDetails.name": 1 } },
 
       // Stage 9: Facet for pagination and total count
       {
