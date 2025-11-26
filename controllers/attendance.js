@@ -165,6 +165,19 @@ exports.markAttendance = async (req, res) => {
         const ms = serverTime - new Date(inRecord.deviceTime);
         workingHours = ms / (1000 * 60 * 60); // Hours
 
+        // ---------------------------------------------------------
+        // 4-HOUR RESTRICTION CHECK
+        // ---------------------------------------------------------
+        if (workingHours < 4) {
+          const remainingMinutes = Math.ceil((4 - workingHours) * 60);
+          const hoursLeft = Math.floor(remainingMinutes / 60);
+          const minsLeft = remainingMinutes % 60;
+
+          return res.status(400).json({
+            message: `You can only check out after 4 hours of work. Time remaining: ${hoursLeft}h ${minsLeft}m.`
+          });
+        }
+
         if (workingHours > 6) {
           status = "Full Day";
         } else if (workingHours > 3) {
@@ -172,6 +185,8 @@ exports.markAttendance = async (req, res) => {
         }
 
         if (workingHours < 4) {
+          // This condition is now technically unreachable due to the check above, 
+          // but keeping "Present" as fallback logic if rules change.
           status = "Present";
         }
       }

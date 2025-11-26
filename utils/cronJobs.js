@@ -80,6 +80,7 @@ const generateAndSendDailyReport = async (targetDate = new Date()) => {
 
         if (adminEmails) {
             const html = createDailyReportHTML(reportData);
+            console.log("Generated report HTML, sending email...");
             const result = await sendEmail(
                 adminEmails,
                 `Daily Attendance Report - ${new Date().toLocaleDateString()}`,

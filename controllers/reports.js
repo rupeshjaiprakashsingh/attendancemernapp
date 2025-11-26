@@ -94,8 +94,12 @@ exports.sendDailyReport = async (req, res) => {
             });
         }
     } catch (error) {
-        console.error("Daily report error:", error);
-        res.status(500).json({ message: error.message });
+        console.error("Daily report controller error:", error);
+        res.status(500).json({
+            success: false,
+            message: "Internal server error while sending report",
+            error: error.message
+        });
     }
 };
 

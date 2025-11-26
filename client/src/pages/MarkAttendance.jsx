@@ -131,18 +131,18 @@ export default function Attendance() {
       // 4-HOUR CHECK-OUT RESTRICTION
       // ---------------------------------------------------------
       if (form.attendanceType === "OUT") {
-        if (!todayRecord || !todayRecord.in) {
-          // If we don't have local record, maybe let backend handle "Must mark IN first"
-          // But if we do have it, we check time.
-          // Ideally we should re-fetch to be sure, but for UI feedback we use state.
-        } else {
+        if (todayRecord && todayRecord.in) {
           const inTime = new Date(todayRecord.in.deviceTime).getTime();
           const now = new Date().getTime();
           const diffMs = now - inTime;
           const diffHours = diffMs / (1000 * 60 * 60);
 
           if (diffHours < 4) {
-            const msg = "Check out is allowed after 4 hour of check in";
+            const remainingMinutes = Math.ceil((4 - diffHours) * 60);
+            const hoursLeft = Math.floor(remainingMinutes / 60);
+            const minsLeft = remainingMinutes % 60;
+
+            const msg = `Check out is allowed after 4 hours of check in. Time remaining: ${hoursLeft}h ${minsLeft}m`;
             setMsg(msg);
             toast.error(msg);
             setLoading(false);
@@ -160,6 +160,10 @@ export default function Attendance() {
       const message = res.data.message || "Marked successfully";
       setMsg(message);
       toast.success(message);
+
+      // Refresh status
+      fetchTodayAttendance();
+
     } catch (error) {
       const errMsg = error.response?.data?.message || error.message;
       setMsg(errMsg);
@@ -172,12 +176,57 @@ export default function Attendance() {
   return (
     <div className="attendance-container">
 
+      {/* STATUS BANNER */}
+      {todayRecord && todayRecord.in && !todayRecord.out && (
+        <div style={{
+          backgroundColor: '#eff6ff',
+          border: '1px solid #3b82f6',
+          borderRadius: '8px',
+          padding: '15px',
+          marginBottom: '20px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px'
+        }}>
+          <div style={{ fontSize: '24px' }}>ℹ️</div>
+          <div>
+            <h3 style={{ margin: '0 0 5px 0', color: '#1e40af', fontSize: '16px' }}>Already Checked In</h3>
+            <p style={{ margin: 0, color: '#1e3a8a', fontSize: '14px' }}>
+              You checked in at <strong>{new Date(todayRecord.in.deviceTime).toLocaleTimeString()}</strong>.
+              You can check out after 4 hours.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {todayRecord && todayRecord.in && todayRecord.out && (
+        <div style={{
+          backgroundColor: '#ecfdf5',
+          border: '1px solid #10b981',
+          borderRadius: '8px',
+          padding: '15px',
+          marginBottom: '20px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px'
+        }}>
+          <div style={{ fontSize: '24px' }}>✅</div>
+          <div>
+            <h3 style={{ margin: '0 0 5px 0', color: '#065f46', fontSize: '16px' }}>Attendance Completed</h3>
+            <p style={{ margin: 0, color: '#064e3b', fontSize: '14px' }}>
+              You have already checked out today. Total working hours: <strong>{todayRecord.totalHours}</strong>.
+            </p>
+          </div>
+        </div>
+      )}
+
       <div className="attendance-buttons">
         <button
           type="button"
           className="attendance-btn"
-          disabled={loading}
+          disabled={loading || (todayRecord?.out)}
           onClick={markAttendance}
+          style={{ opacity: todayRecord?.out ? 0.5 : 1 }}
         >
           {loading ? "Submitting..." : "Mark Attendance"}
         </button>
@@ -269,8 +318,9 @@ export default function Attendance() {
             <button
               type="button"
               className="attendance-btn"
-              disabled={loading}
+              disabled={loading || (todayRecord?.out)}
               onClick={markAttendance}
+              style={{ opacity: todayRecord?.out ? 0.5 : 1 }}
             >
               {loading ? "Submitting..." : "Mark Attendance"}
             </button>

@@ -1,17 +1,15 @@
-const nodemailer = require("nodemailer");
+const nodemailer = require('nodemailer');
 
-// Create transporter
 const createTransporter = () => {
   return nodemailer.createTransport({
-    service: process.env.EMAIL_SERVICE || "gmail",
+    service: 'gmail',
     auth: {
       user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASSWORD
+      pass: process.env.EMAIL_PASS
     }
   });
 };
 
-// Send email
 const sendEmail = async (to, subject, html) => {
   try {
     const transporter = createTransporter();
@@ -23,8 +21,9 @@ const sendEmail = async (to, subject, html) => {
       html
     };
 
+    console.log(`Attempting to send email to: ${to}`);
     const info = await transporter.sendMail(mailOptions);
-    console.log("Email sent:", info.messageId);
+    console.log("Email sent successfully:", info.messageId);
 
     // Preview only available when sending through an Ethereal account
     const previewUrl = nodemailer.getTestMessageUrl(info);
