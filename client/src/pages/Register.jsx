@@ -72,7 +72,13 @@ const Register = () => {
         toast.success("Registration successful!");
         navigate("/login");
       } catch (err) {
-        toast.error(err?.response?.data?.msg || err.message);
+        const errorMsg = err?.response?.data?.msg || err.message;
+        if (errorMsg === "Email already in use") {
+          toast.error("Email already exists. Please Login.");
+          // Optional: Redirect to login after a delay or let user click the link
+        } else {
+          toast.error(errorMsg);
+        }
       }
     },
   });

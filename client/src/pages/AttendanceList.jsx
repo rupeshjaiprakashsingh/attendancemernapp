@@ -317,6 +317,8 @@ export default function AttendanceList() {
                   <th>Date</th>
                   <th>Type</th>
                   <th>Device ID</th>
+                  <th>In Address</th>
+                  <th>Out Address</th>
                   <th>IN Time</th>
                   <th>OUT Time</th>
                   <th>Working Hours</th>
@@ -351,7 +353,7 @@ export default function AttendanceList() {
                         </td>
                         {/* NAME → CLICKABLE LINK (Only for Admin) */}
                         {userRole === "admin" && (
-                          <td>
+                          <td className="name-cell">
                             <Link
                               to={`/dashboard/attendance/${r.userId}?date=${r.dateStr}`}
                               style={{
@@ -366,7 +368,7 @@ export default function AttendanceList() {
                         )}
 
                         {/* DATE */}
-                        <td>{r.dateStr}</td>
+                        <td className="date-cell">{r.dateStr}</td>
 
                         {/* TYPE - Show both IN and OUT */}
                         <td>
@@ -403,21 +405,31 @@ export default function AttendanceList() {
                         </td>
 
                         {/* DEVICE ID */}
-                        <td>
+                        <td className="device-id-cell">
                           <span title={r.inRecord?.deviceId || r.outRecord?.deviceId || "-"}>
                             {r.inRecord?.deviceId || r.outRecord?.deviceId || "-"}
                           </span>
                         </td>
 
+                        {/* IN ADDRESS */}
+                        <td className="address-cell" title={r.inRecord?.address || "-"}>
+                          {r.inRecord?.address || "-"}
+                        </td>
+
+                        {/* OUT ADDRESS */}
+                        <td className="address-cell" title={r.outRecord?.address || "-"}>
+                          {r.outRecord?.address || "-"}
+                        </td>
+
                         {/* IN TIME */}
-                        <td>
+                        <td className="time-cell">
                           {r.inRecord?.deviceTime
                             ? new Date(r.inRecord.deviceTime).toLocaleTimeString()
                             : "-"}
                         </td>
 
                         {/* OUT TIME */}
-                        <td>
+                        <td className="time-cell">
                           {r.outRecord?.deviceTime
                             ? new Date(r.outRecord.deviceTime).toLocaleTimeString()
                             : "-"}

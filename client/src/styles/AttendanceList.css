@@ -60,6 +60,8 @@
 .attendance-table {
   width: 100%;
   border-collapse: collapse;
+  min-width: 1000px;
+  /* Ensure it scrolls on small screens */
 }
 
 .attendance-table thead {
@@ -68,9 +70,9 @@
 }
 
 .attendance-table th {
-  padding: 0.75rem 1rem;
+  padding: 0.5rem 0.75rem;
   text-align: left;
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -79,10 +81,10 @@
 }
 
 .attendance-table td {
-  padding: 0.75rem 1rem;
+  padding: 0.5rem 0.75rem;
   border-bottom: 1px solid var(--border);
   color: var(--text-primary);
-  font-size: 0.875rem;
+  font-size: 0.8rem;
 }
 
 .attendance-table tbody tr:hover {
@@ -93,8 +95,29 @@
   border-bottom: none;
 }
 
+/* Column Specific Styles */
+.name-cell {
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+.date-cell {
+  white-space: nowrap;
+}
+
+.device-id-cell {
+  max-width: 100px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.time-cell {
+  white-space: nowrap;
+}
+
 .address-cell {
-  max-width: 200px;
+  max-width: 150px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

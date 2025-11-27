@@ -138,6 +138,8 @@ const deleteUser = async (req, res) => {
   }
 };
 
+const { sendEmail } = require("../utils/emailService");
+
 const register = async (req, res) => {
   let foundUser = await User.findOne({ email: req.body.email });
   if (foundUser === null) {
@@ -150,6 +152,28 @@ const register = async (req, res) => {
         role: role || "user",
       });
       await person.save();
+
+      // Send Welcome Email
+      try {
+        const subject = "Welcome to Attendance Management System";
+        const html = `
+          <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
+            <h2 style="color: #2563eb;">Welcome, ${username}!</h2>
+            <p>Thank you for registering with our Attendance Management System.</p>
+            <p>Your account has been successfully created.</p>
+            <p>You can now login to mark your attendance and view reports.</p>
+            <br>
+            <p>Best Regards,</p>
+            <p><strong>Attendance Team</strong></p>
+          </div>
+        `;
+        await sendEmail(email, subject, html);
+        console.log(`Welcome email sent to ${email}`);
+      } catch (emailError) {
+        console.error("Failed to send welcome email:", emailError);
+        // Don't fail registration if email fails
+      }
+
       return res.status(201).json({ person });
     } else {
       return res.status(400).json({ msg: "Please add all values in the request body" });
