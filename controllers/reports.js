@@ -297,3 +297,261 @@ exports.exportMonthlyExcel = async (req, res) => {
         res.status(500).json({ message: error.message });
     }
 };
+
+// Get Date Range Report Data
+exports.getDateRangeReport = async (req, res) => {
+    try {
+        const { fromDate, toDate } = req.query;
+
+        if (!fromDate || !toDate) {
+            return res.status(400).json({ message: "From date and to date are required" });
+        }
+
+        // Parse dates properly to avoid timezone issues
+        const [startYear, startMonth, startDay] = fromDate.split('-').map(Number);
+        const [endYear, endMonth, endDay] = toDate.split('-').map(Number);
+
+        const startDate = new Date(startYear, startMonth - 1, startDay, 0, 0, 0, 0);
+        const endDate = new Date(endYear, endMonth - 1, endDay, 23, 59, 59, 999);
+
+        if (startDate > endDate) {
+            return res.status(400).json({ message: "From date cannot be after to date" });
+        }
+
+        // Get all users
+        const allUsers = await User.find().select("name email");
+
+        // Get attendance for the date range
+        const rangeAttendance = await Attendance.find({
+            deviceTime: { $gte: startDate, $lte: endDate }
+        }).populate("userId", "name email");
+
+        // Group by user and date
+        const userReportMap = {};
+
+        allUsers.forEach(user => {
+            userReportMap[user._id.toString()] = {
+                name: user.name,
+                email: user.email,
+                daysPresent: 0,
+                daysAbsent: 0,
+                totalWorkingHours: 0,
+                averageWorkingHours: 0,
+                dailyRecords: {}
+            };
+        });
+
+        rangeAttendance.forEach(record => {
+            const userId = record.userId?._id?.toString();
+            if (!userId || !userReportMap[userId]) return;
+
+            const dateStr = new Date(record.deviceTime).toISOString().split('T')[0];
+
+            if (!userReportMap[userId].dailyRecords[dateStr]) {
+                userReportMap[userId].dailyRecords[dateStr] = {
+                    checkIn: null,
+                    checkOut: null,
+                    workingHours: 0
+                };
+            }
+
+            if (record.attendanceType === "IN") {
+                userReportMap[userId].dailyRecords[dateStr].checkIn = record.deviceTime;
+            } else if (record.attendanceType === "OUT") {
+                userReportMap[userId].dailyRecords[dateStr].checkOut = record.deviceTime;
+                userReportMap[userId].dailyRecords[dateStr].workingHours = record.workingHours || 0;
+            }
+        });
+
+        // Calculate summary stats
+        const totalDays = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
+
+        Object.keys(userReportMap).forEach(userId => {
+            const user = userReportMap[userId];
+
+            user.daysPresent = Object.keys(user.dailyRecords).length;
+            user.daysAbsent = totalDays - user.daysPresent;
+
+            user.totalWorkingHours = Object.values(user.dailyRecords)
+                .reduce((sum, day) => sum + (day.workingHours || 0), 0);
+
+            user.averageWorkingHours = user.daysPresent > 0
+                ? user.totalWorkingHours / user.daysPresent
+                : 0;
+        });
+
+        const reportData = Object.values(userReportMap);
+
+        res.status(200).json({
+            success: true,
+            fromDate,
+            toDate,
+            totalDays,
+            data: reportData
+        });
+    } catch (error) {
+        console.error("Date range report error:", error);
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// Export Date Range Report to Excel with Date Column
+exports.exportDateRangeExcel = async (req, res) => {
+    try {
+        const { fromDate, toDate } = req.query;
+
+        if (!fromDate || !toDate) {
+            return res.status(400).json({ message: "From date and to date are required" });
+        }
+
+        // Parse dates properly to avoid timezone issues
+        const [startYear, startMonth, startDay] = fromDate.split('-').map(Number);
+        const [endYear, endMonth, endDay] = toDate.split('-').map(Number);
+
+        const startDate = new Date(startYear, startMonth - 1, startDay, 0, 0, 0, 0);
+        const endDate = new Date(endYear, endMonth - 1, endDay, 23, 59, 59, 999);
+
+        if (startDate > endDate) {
+            return res.status(400).json({ message: "From date cannot be after to date" });
+        }
+
+        // Get all users
+        const allUsers = await User.find().select("name email");
+        const rangeAttendance = await Attendance.find({
+            deviceTime: { $gte: startDate, $lte: endDate }
+        }).populate("userId", "name email");
+
+        // Create workbook
+        const workbook = new ExcelJS.Workbook();
+        const worksheet = workbook.addWorksheet('Date Range Attendance');
+
+        // Add title
+        worksheet.mergeCells('A1:G1');
+        worksheet.getCell('A1').value = `Attendance Report - ${new Date(fromDate).toLocaleDateString('en-US')} to ${new Date(toDate).toLocaleDateString('en-US')}`;
+        worksheet.getCell('A1').font = { size: 16, bold: true };
+        worksheet.getCell('A1').alignment = { horizontal: 'center' };
+
+        // Add headers with Date column
+        worksheet.addRow([]);
+        const headerRow = worksheet.addRow(['Name', 'Email', 'Date', 'Check In', 'Check Out', 'Working Hours', 'Status']);
+        headerRow.font = { bold: true };
+        headerRow.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FF3B82F6' }
+        };
+        headerRow.eachCell(cell => {
+            cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+            cell.alignment = { horizontal: 'center' };
+        });
+
+        // Process data - create date-wise records
+        const userReportMap = {};
+        allUsers.forEach(user => {
+            userReportMap[user._id.toString()] = {
+                name: user.name,
+                email: user.email,
+                dailyRecords: {}
+            };
+        });
+
+        rangeAttendance.forEach(record => {
+            const userId = record.userId?._id?.toString();
+            if (!userId || !userReportMap[userId]) return;
+
+            const dateStr = new Date(record.deviceTime).toISOString().split('T')[0];
+
+            if (!userReportMap[userId].dailyRecords[dateStr]) {
+                userReportMap[userId].dailyRecords[dateStr] = {
+                    checkIn: null,
+                    checkOut: null,
+                    workingHours: 0
+                };
+            }
+
+            if (record.attendanceType === "IN") {
+                userReportMap[userId].dailyRecords[dateStr].checkIn = record.deviceTime;
+            } else if (record.attendanceType === "OUT") {
+                userReportMap[userId].dailyRecords[dateStr].checkOut = record.deviceTime;
+                userReportMap[userId].dailyRecords[dateStr].workingHours = record.workingHours || 0;
+            }
+        });
+
+        // Generate all dates in range (using local dates to avoid timezone issues)
+        const dateArray = [];
+        const loopDate = new Date(startDate);
+        while (loopDate <= endDate) {
+            const year = loopDate.getFullYear();
+            const month = String(loopDate.getMonth() + 1).padStart(2, '0');
+            const day = String(loopDate.getDate()).padStart(2, '0');
+            dateArray.push(`${year}-${month}-${day}`);
+            loopDate.setDate(loopDate.getDate() + 1);
+        }
+
+        // Add rows for each user and each date
+        Object.values(userReportMap).forEach(user => {
+            dateArray.forEach(dateStr => {
+                const dayRecord = user.dailyRecords[dateStr];
+
+                // Format date properly without timezone issues
+                const [year, month, day] = dateStr.split('-').map(Number);
+                const dateObj = new Date(year, month - 1, day);
+                const formattedDate = dateObj.toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric'
+                });
+
+                if (dayRecord) {
+                    // User was present on this date
+                    const checkInTime = dayRecord.checkIn
+                        ? new Date(dayRecord.checkIn).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+                        : '-';
+                    const checkOutTime = dayRecord.checkOut
+                        ? new Date(dayRecord.checkOut).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+                        : '-';
+                    const workingHours = dayRecord.workingHours > 0
+                        ? parseFloat(dayRecord.workingHours.toFixed(2))
+                        : 0;
+
+                    worksheet.addRow([
+                        user.name,
+                        user.email,
+                        formattedDate,
+                        checkInTime,
+                        checkOutTime,
+                        workingHours,
+                        'Present'
+                    ]);
+                } else {
+                    // User was absent on this date
+                    worksheet.addRow([
+                        user.name,
+                        user.email,
+                        formattedDate,
+                        '-',
+                        '-',
+                        0,
+                        'Absent'
+                    ]);
+                }
+            });
+        });
+
+        // Auto-fit columns
+        worksheet.columns.forEach(column => {
+            column.width = 18;
+        });
+
+        // Set response headers
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', `attachment; filename=attendance_${fromDate}_to_${toDate}.xlsx`);
+
+        // Write to response
+        await workbook.xlsx.write(res);
+        res.end();
+    } catch (error) {
+        console.error("Date range Excel export error:", error);
+        res.status(500).json({ message: error.message });
+    }
+};

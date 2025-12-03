@@ -8,6 +8,9 @@ export default function Reports() {
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [reportData, setReportData] = useState(null);
+  const [reportType, setReportType] = useState("monthly"); // "monthly" or "dateRange"
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
 
   const token = JSON.parse(localStorage.getItem("auth")) || localStorage.getItem("token") || "";
 
@@ -79,6 +82,60 @@ export default function Reports() {
       const link = document.createElement("a");
       link.href = url;
       link.setAttribute("download", `attendance_${selectedYear}_${selectedMonth}.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+
+      toast.success("Excel file downloaded successfully");
+    } catch (err) {
+      toast.error("Failed to download Excel file");
+    }
+    setLoading(false);
+  };
+
+  // View Date Range Report
+  const handleViewDateRangeReport = async () => {
+    if (!fromDate || !toDate) {
+      toast.error("Please select both from date and to date");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await axios.get(
+        `/api/v1/reports/date-range-report?fromDate=${fromDate}&toDate=${toDate}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setReportData(res.data);
+      toast.success("Date range report generated successfully");
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to generate date range report");
+    }
+    setLoading(false);
+  };
+
+  // Download Date Range Excel
+  const handleDownloadDateRangeExcel = async () => {
+    if (!fromDate || !toDate) {
+      toast.error("Please select both from date and to date");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await axios.get(
+        `/api/v1/reports/export-date-range-excel?fromDate=${fromDate}&toDate=${toDate}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+          responseType: "blob"
+        }
+      );
+
+      // Create download link
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `attendance_${fromDate}_to_${toDate}.xlsx`);
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -182,11 +239,68 @@ export default function Reports() {
         </div>
       </div>
 
+      {/* Date Range Report Section */}
+      <div className="card">
+        <div className="card-header">
+          <h3>📅 Date Range Attendance Report</h3>
+        </div>
+        <div className="card-body">
+          <p className="card-description">
+            Generate detailed attendance reports for a custom date range with date-wise breakdown.
+          </p>
+
+          {/* Date Range Selector */}
+          <div className="report-filters">
+            <div className="form-group">
+              <label className="form-label">From Date</label>
+              <input
+                type="date"
+                className="form-select"
+                value={fromDate}
+                onChange={(e) => setFromDate(e.target.value)}
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">To Date</label>
+              <input
+                type="date"
+                className="form-select"
+                value={toDate}
+                onChange={(e) => setToDate(e.target.value)}
+              />
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="report-actions">
+            <button
+              className="btn btn-primary"
+              onClick={handleViewDateRangeReport}
+              disabled={loading}
+            >
+              {loading ? "Generating..." : "View Report"}
+            </button>
+            <button
+              className="btn btn-success"
+              onClick={handleDownloadDateRangeExcel}
+              disabled={loading}
+            >
+              📥 Download Excel
+            </button>
+          </div>
+        </div>
+      </div>
+
       {/* Report Data Display */}
       {reportData && (
         <div className="card">
           <div className="card-header">
-            <h3>Report: {reportData.monthName} {reportData.year}</h3>
+            <h3>
+              Report: {reportData.monthName
+                ? `${reportData.monthName} ${reportData.year}`
+                : `${new Date(reportData.fromDate).toLocaleDateString('en-US')} to ${new Date(reportData.toDate).toLocaleDateString('en-US')}`}
+            </h3>
           </div>
           <div className="card-body">
             <div className="table-container">
