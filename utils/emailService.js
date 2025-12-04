@@ -10,7 +10,7 @@ const createTransporter = () => {
   });
 };
 
-const sendEmail = async (to, subject, html) => {
+const sendEmail = async (to, subject, html, cc = null) => {
   try {
     const transporter = createTransporter();
 
@@ -21,7 +21,16 @@ const sendEmail = async (to, subject, html) => {
       html
     };
 
+    // Add CC if provided
+    if (cc) {
+      mailOptions.cc = cc;
+    }
+
     console.log(`Attempting to send email to: ${to}`);
+    if (cc) {
+      console.log(`CC: ${cc}`);
+    }
+
     const info = await transporter.sendMail(mailOptions);
     console.log("Email sent successfully:", info.messageId);
 

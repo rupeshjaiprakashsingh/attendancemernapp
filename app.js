@@ -26,6 +26,7 @@ app.use("/api/v1", userRoutes);                 // Example: /api/v1/register
 app.use("/api/v1/attendance", attendanceRoutes); // Example: /api/v1/attendance/mark
 app.use("/api/v1/dashboard", dashboardRoutes);   // Example: /api/v1/dashboard/admin-stats
 app.use("/api/v1/reports", reportRoutes);        // Example: /api/v1/reports/monthly-report
+app.use("/api/v1/enquiry", require("./routes/enquiry")); // Public API for enquiry form
 
 const port = process.env.PORT || 3000;
 

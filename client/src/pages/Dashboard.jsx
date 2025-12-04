@@ -121,6 +121,16 @@ const Dashboard = () => {
                   Users
                 </Link>
               </li>
+
+              <li>
+                <Link
+                  to="/dashboard/enquiries"
+                  className="nav-item"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  Enquiries
+                </Link>
+              </li>
             </>
           )}
 
