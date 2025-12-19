@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { toast } from 'react-toastify';
 import "../styles/Attendance.css";
+import { GoogleMap, Marker, useJsApiLoader } from "@react-google-maps/api";
 
 export default function Attendance() {
   const [form, setForm] = useState({
@@ -17,6 +18,10 @@ export default function Attendance() {
     batteryPercentage: "",
     networkType: "",
     remarks: "",
+  });
+
+  const { isLoaded } = useJsApiLoader({
+    googleMapsApiKey: "AIzaSyBAbFbmXPOSgsBnhuYrCtSQ7yXK_0nB--Y", // Replace with env if possible
   });
 
   const [loading, setLoading] = useState(false);
@@ -61,28 +66,43 @@ export default function Attendance() {
     } catch { }
   };
 
-  // Fetch GPS Location
+  // Fetch GPS Location (Promisified)
   const fetchLocation = () => {
-    if (!navigator.geolocation) {
-      alert("Geolocation not supported");
-      return;
+    return new Promise((resolve, reject) => {
+      if (!navigator.geolocation) {
+        alert("Geolocation not supported");
+        reject(new Error("Geolocation not supported"));
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const lat = pos.coords.latitude;
+          const lng = pos.coords.longitude;
+          const acc = pos.coords.accuracy;
+
+          setForm((p) => ({ ...p, latitude: lat, longitude: lng, locationAccuracy: acc }));
+          fetchAddress(lat, lng);
+          resolve({ latitude: lat, longitude: lng, locationAccuracy: acc });
+        },
+        (err) => {
+          alert("Unable to fetch location: " + err.message);
+          reject(err);
+        },
+        { enableHighAccuracy: true, maximumAge: 0 }
+      );
+    });
+  };
+
+  // Manual Refresh for Button
+  const refreshLocationManual = async () => {
+    const toastId = toast.loading("Fetching latest location...");
+    try {
+      await fetchLocation();
+      toast.update(toastId, { render: "Location updated!", type: "success", isLoading: false, autoClose: 2000 });
+    } catch (e) {
+      toast.update(toastId, { render: "Failed to update location.", type: "error", isLoading: false, autoClose: 3000 });
     }
-
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const lat = pos.coords.latitude;
-        const lng = pos.coords.longitude;
-        const acc = pos.coords.accuracy;
-
-        setForm((p) => ({ ...p, latitude: lat, longitude: lng, locationAccuracy: acc }));
-
-        fetchAddress(lat, lng);
-      },
-      (err) => {
-        alert("Unable to fetch location");
-      },
-      { enableHighAccuracy: true }
-    );
   };
 
   const token =
@@ -127,9 +147,21 @@ export default function Attendance() {
     setMsg("");
 
     try {
-      // ---------------------------------------------------------
+      // Force Refresh Location before submitting
+      let currentLoc = { latitude: form.latitude, longitude: form.longitude, locationAccuracy: form.locationAccuracy };
+      try {
+        currentLoc = await fetchLocation();
+      } catch (locErr) {
+        console.warn("Could not refresh location, using existing...", locErr);
+        // If we strictly require fresh location, we could return here. 
+        // For now, proceeding if we have at least some coords.
+        if (!currentLoc.latitude) {
+          setLoading(false);
+          return;
+        }
+      }
+
       // 4-HOUR CHECK-OUT RESTRICTION
-      // ---------------------------------------------------------
       if (form.attendanceType === "OUT") {
         if (todayRecord && todayRecord.in) {
           const inTime = new Date(todayRecord.in.deviceTime).getTime();
@@ -151,9 +183,12 @@ export default function Attendance() {
         }
       }
 
+      // Merge fresh location into payload
+      const payload = { ...form, ...currentLoc };
+
       const res = await axios.post(
         "/api/v1/attendance/mark",
-        { ...form },
+        payload,
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
@@ -265,6 +300,41 @@ export default function Attendance() {
             <label>Longitude</label>
             <input type="text" value={form.longitude} readOnly />
           </div>
+
+          {/* Map View */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+            <label style={{ fontWeight: 'bold', color: '#374151' }}>Current Location</label>
+            <button
+              type="button"
+              onClick={refreshLocationManual}
+              style={{
+                background: '#3b82f6',
+                color: 'white',
+                border: 'none',
+                padding: '5px 10px',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '13px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px'
+              }}
+            >
+              Update Location ↻
+            </button>
+          </div>
+          {isLoaded && form.latitude && form.longitude && (
+            <div style={{ height: "250px", width: "100%", marginBottom: "15px", borderRadius: "8px", overflow: "hidden" }}>
+              <GoogleMap
+                mapContainerStyle={{ width: "100%", height: "100%" }}
+                center={{ lat: parseFloat(form.latitude), lng: parseFloat(form.longitude) }}
+                zoom={15}
+                options={{ streetViewControl: false, mapTypeControl: false }}
+              >
+                <Marker position={{ lat: parseFloat(form.latitude), lng: parseFloat(form.longitude) }} />
+              </GoogleMap>
+            </div>
+          )}
 
           <div className="form-group">
             <label>Time</label>
