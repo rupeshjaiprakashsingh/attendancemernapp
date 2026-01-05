@@ -141,6 +141,13 @@ export default function Attendance() {
     fetchTodayAttendance();
   }, []);
 
+  // Auto-switch to OUT if already checked in
+  useEffect(() => {
+    if (todayRecord && todayRecord.in && !todayRecord.out) {
+      setForm(p => ({ ...p, attendanceType: "OUT" }));
+    }
+  }, [todayRecord]);
+
   // Submit Attendance
   const markAttendance = async () => {
     setLoading(true);

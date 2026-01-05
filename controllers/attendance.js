@@ -46,23 +46,9 @@ exports.markAttendance = async (req, res) => {
       return res.status(400).json({ message: "Mandatory fields missing" });
     }
 
-    // ---------------------------------------------------------
-    // TIME RESTRICTION: No Check-In after 12:30 PM IST
-    // ---------------------------------------------------------
-    if (attendanceType === "IN") {
-      // istDate is already calculated above (serverTime + 5.5 hours)
-      const istHours = istDate.getUTCHours();
-      const istMinutes = istDate.getUTCMinutes();
-
-      // 12:30 PM = 12 hours, 30 minutes
-      if (istHours > 12 || (istHours === 12 && istMinutes >= 30)) {
-        return res.status(400).json({
-          message: "Check-in is not allowed after 12:30 PM IST. You can only Check Out."
-        });
-      }
-    }
-
     // Duplicate Check for same day (Only for IN)
+    // We do this BEFORE time restriction, because if they already marked IN, 
+    // we want to switch them to OUT (which is allowed after 12:30 PM).
     if (attendanceType === "IN") {
       const alreadyMarkedIn = await Attendance.findOne({
         userId,
@@ -76,6 +62,22 @@ exports.markAttendance = async (req, res) => {
       if (alreadyMarkedIn) {
         console.log(`[Attendance] Duplicate IN found. Switching to OUT.`);
         attendanceType = "OUT";
+      }
+    }
+
+    // ---------------------------------------------------------
+    // TIME RESTRICTION: No Check-In after 12:30 PM IST
+    // ---------------------------------------------------------
+    if (attendanceType === "IN") {
+      // istDate is already calculated above (serverTime + 5.5 hours)
+      const istHours = istDate.getUTCHours();
+      const istMinutes = istDate.getUTCMinutes();
+
+      // 12:30 PM = 12 hours, 30 minutes
+      if (istHours > 12 || (istHours === 12 && istMinutes >= 30)) {
+        return res.status(400).json({
+          message: "Check-in is not allowed after 12:30 PM IST. You can only Check Out."
+        });
       }
     }
 
