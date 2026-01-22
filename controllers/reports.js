@@ -301,7 +301,7 @@ exports.exportMonthlyExcel = async (req, res) => {
 // Get Date Range Report Data
 exports.getDateRangeReport = async (req, res) => {
     try {
-        const { fromDate, toDate } = req.query;
+        const { fromDate, toDate, userId } = req.query;
 
         if (!fromDate || !toDate) {
             return res.status(400).json({ message: "From date and to date are required" });
@@ -318,13 +318,24 @@ exports.getDateRangeReport = async (req, res) => {
             return res.status(400).json({ message: "From date cannot be after to date" });
         }
 
-        // Get all users
-        const allUsers = await User.find().select("name email");
+        // User Filter
+        const userQuery = {};
+        if (userId && userId !== "all") {
+            userQuery._id = userId;
+        }
 
-        // Get attendance for the date range
-        const rangeAttendance = await Attendance.find({
+        // Get users
+        const allUsers = await User.find(userQuery).select("name email");
+
+        // Attendance Filter
+        const attendanceQuery = {
             deviceTime: { $gte: startDate, $lte: endDate }
-        }).populate("userId", "name email");
+        };
+        if (userId && userId !== "all") {
+            attendanceQuery.userId = userId;
+        }
+
+        const rangeAttendance = await Attendance.find(attendanceQuery).populate("userId", "name email");
 
         // Group by user and date
         const userReportMap = {};
@@ -342,13 +353,14 @@ exports.getDateRangeReport = async (req, res) => {
         });
 
         rangeAttendance.forEach(record => {
-            const userId = record.userId?._id?.toString();
-            if (!userId || !userReportMap[userId]) return;
+            const rUserId = record.userId?._id?.toString();
+            // Only process if this user is in our map (which handles the filtering effectively)
+            if (!rUserId || !userReportMap[rUserId]) return;
 
             const dateStr = new Date(record.deviceTime).toISOString().split('T')[0];
 
-            if (!userReportMap[userId].dailyRecords[dateStr]) {
-                userReportMap[userId].dailyRecords[dateStr] = {
+            if (!userReportMap[rUserId].dailyRecords[dateStr]) {
+                userReportMap[rUserId].dailyRecords[dateStr] = {
                     checkIn: null,
                     checkOut: null,
                     workingHours: 0
@@ -356,18 +368,18 @@ exports.getDateRangeReport = async (req, res) => {
             }
 
             if (record.attendanceType === "IN") {
-                userReportMap[userId].dailyRecords[dateStr].checkIn = record.deviceTime;
+                userReportMap[rUserId].dailyRecords[dateStr].checkIn = record.deviceTime;
             } else if (record.attendanceType === "OUT") {
-                userReportMap[userId].dailyRecords[dateStr].checkOut = record.deviceTime;
-                userReportMap[userId].dailyRecords[dateStr].workingHours = record.workingHours || 0;
+                userReportMap[rUserId].dailyRecords[dateStr].checkOut = record.deviceTime;
+                userReportMap[rUserId].dailyRecords[dateStr].workingHours = record.workingHours || 0;
             }
         });
 
         // Calculate summary stats
         const totalDays = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
 
-        Object.keys(userReportMap).forEach(userId => {
-            const user = userReportMap[userId];
+        Object.keys(userReportMap).forEach(key => {
+            const user = userReportMap[key];
 
             user.daysPresent = Object.keys(user.dailyRecords).length;
             user.daysAbsent = totalDays - user.daysPresent;
@@ -398,7 +410,7 @@ exports.getDateRangeReport = async (req, res) => {
 // Export Date Range Report to Excel with Date Column
 exports.exportDateRangeExcel = async (req, res) => {
     try {
-        const { fromDate, toDate } = req.query;
+        const { fromDate, toDate, userId } = req.query;
 
         if (!fromDate || !toDate) {
             return res.status(400).json({ message: "From date and to date are required" });
@@ -415,11 +427,23 @@ exports.exportDateRangeExcel = async (req, res) => {
             return res.status(400).json({ message: "From date cannot be after to date" });
         }
 
-        // Get all users
-        const allUsers = await User.find().select("name email");
-        const rangeAttendance = await Attendance.find({
+        // User Filter
+        const userQuery = {};
+        if (userId && userId !== "all") {
+            userQuery._id = userId;
+        }
+
+        const allUsers = await User.find(userQuery).select("name email");
+
+        // Attendance Filter
+        const attendanceQuery = {
             deviceTime: { $gte: startDate, $lte: endDate }
-        }).populate("userId", "name email");
+        };
+        if (userId && userId !== "all") {
+            attendanceQuery.userId = userId;
+        }
+
+        const rangeAttendance = await Attendance.find(attendanceQuery).populate("userId", "name email");
 
         // Create workbook
         const workbook = new ExcelJS.Workbook();
@@ -456,13 +480,13 @@ exports.exportDateRangeExcel = async (req, res) => {
         });
 
         rangeAttendance.forEach(record => {
-            const userId = record.userId?._id?.toString();
-            if (!userId || !userReportMap[userId]) return;
+            const rUserId = record.userId?._id?.toString();
+            if (!rUserId || !userReportMap[rUserId]) return;
 
             const dateStr = new Date(record.deviceTime).toISOString().split('T')[0];
 
-            if (!userReportMap[userId].dailyRecords[dateStr]) {
-                userReportMap[userId].dailyRecords[dateStr] = {
+            if (!userReportMap[rUserId].dailyRecords[dateStr]) {
+                userReportMap[rUserId].dailyRecords[dateStr] = {
                     checkIn: null,
                     checkOut: null,
                     workingHours: 0
@@ -470,10 +494,10 @@ exports.exportDateRangeExcel = async (req, res) => {
             }
 
             if (record.attendanceType === "IN") {
-                userReportMap[userId].dailyRecords[dateStr].checkIn = record.deviceTime;
+                userReportMap[rUserId].dailyRecords[dateStr].checkIn = record.deviceTime;
             } else if (record.attendanceType === "OUT") {
-                userReportMap[userId].dailyRecords[dateStr].checkOut = record.deviceTime;
-                userReportMap[userId].dailyRecords[dateStr].workingHours = record.workingHours || 0;
+                userReportMap[rUserId].dailyRecords[dateStr].checkOut = record.deviceTime;
+                userReportMap[rUserId].dailyRecords[dateStr].workingHours = record.workingHours || 0;
             }
         });
 
@@ -524,7 +548,8 @@ exports.exportDateRangeExcel = async (req, res) => {
                         'Present'
                     ]);
                 } else {
-                    // User was absent on this date
+                    // Only show absent rows if specific user selected OR if explicitly desired. 
+                    // For now keeping it essentially same as before to show full attendance log.
                     worksheet.addRow([
                         user.name,
                         user.email,

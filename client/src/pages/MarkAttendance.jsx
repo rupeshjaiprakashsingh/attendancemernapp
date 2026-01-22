@@ -27,6 +27,8 @@ export default function Attendance() {
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState("");
   const [todayRecord, setTodayRecord] = useState(null); // Store today's attendance
+  const [showEarlyModal, setShowEarlyModal] = useState(false);
+  const [earlyReason, setEarlyReason] = useState("");
 
   // Generate device ID (stored permanently)
   const generateDeviceId = () => {
@@ -148,8 +150,18 @@ export default function Attendance() {
     }
   }, [todayRecord]);
 
+  const handleEarlySubmit = () => {
+    if (!earlyReason.trim()) {
+      toast.error("Please provide a reason for early checkout.");
+      return;
+    }
+    const newRemarks = form.remarks ? `${form.remarks} | Early Reason: ${earlyReason}` : `Early Reason: ${earlyReason}`;
+    markAttendance(true, newRemarks);
+    setShowEarlyModal(false);
+  };
+
   // Submit Attendance
-  const markAttendance = async () => {
+  const markAttendance = async (bypassTimeCheck = false, customRemarks = null) => {
     setLoading(true);
     setMsg("");
 
@@ -168,22 +180,16 @@ export default function Attendance() {
         }
       }
 
-      // 4-HOUR CHECK-OUT RESTRICTION
-      if (form.attendanceType === "OUT") {
+      // 8-HOUR CHECK-OUT RESTRICTION
+      if (form.attendanceType === "OUT" && bypassTimeCheck !== true) {
         if (todayRecord && todayRecord.in) {
           const inTime = new Date(todayRecord.in.deviceTime).getTime();
           const now = new Date().getTime();
           const diffMs = now - inTime;
           const diffHours = diffMs / (1000 * 60 * 60);
 
-          if (diffHours < 4) {
-            const remainingMinutes = Math.ceil((4 - diffHours) * 60);
-            const hoursLeft = Math.floor(remainingMinutes / 60);
-            const minsLeft = remainingMinutes % 60;
-
-            const msg = `Check out is allowed after 4 hours of check in. Time remaining: ${hoursLeft}h ${minsLeft}m`;
-            setMsg(msg);
-            toast.error(msg);
+          if (diffHours < 8) {
+            setShowEarlyModal(true);
             setLoading(false);
             return;
           }
@@ -191,7 +197,8 @@ export default function Attendance() {
       }
 
       // Merge fresh location into payload
-      const payload = { ...form, ...currentLoc };
+      const finalRemarks = customRemarks !== null ? customRemarks : form.remarks;
+      const payload = { ...form, remarks: finalRemarks, ...currentLoc };
 
       const res = await axios.post(
         "/api/v1/attendance/mark",
@@ -235,7 +242,7 @@ export default function Attendance() {
             <h3 style={{ margin: '0 0 5px 0', color: '#1e40af', fontSize: '16px' }}>Already Checked In</h3>
             <p style={{ margin: 0, color: '#1e3a8a', fontSize: '14px' }}>
               You checked in at <strong>{new Date(todayRecord.in.deviceTime).toLocaleTimeString()}</strong>.
-              You can check out after 4 hours.
+              Standard working hours: 8 hours. Early checkout will be marked Absent.
             </p>
           </div>
         </div>
@@ -406,6 +413,57 @@ export default function Attendance() {
 
 
       </div>
-    </div>
+
+
+      {/* Early Checkout Modal */ }
+  {
+    showEarlyModal && (
+      <div style={{
+        position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+        backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000
+      }}>
+        <div style={{
+          backgroundColor: 'white', padding: '20px', borderRadius: '8px', width: '90%', maxWidth: '400px',
+          boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+        }}>
+          <h3 style={{ marginTop: 0, color: '#dc2626' }}>Early Checkout Warning</h3>
+          <p style={{ color: '#4b5563', marginBottom: '15px' }}>
+            If you will not complete 8 working hours then <strong>Absent</strong> will be marked for today.
+          </p>
+
+          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Why not able to complete?</label>
+          <textarea
+            value={earlyReason}
+            onChange={(e) => setEarlyReason(e.target.value)}
+            placeholder="Enter reason..."
+            style={{
+              width: '100%', minHeight: '80px', padding: '8px', border: '1px solid #d1d5db', borderRadius: '4px', marginBottom: '15px'
+            }}
+          />
+
+          <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+            <button
+              onClick={() => setShowEarlyModal(false)}
+              style={{
+                padding: '8px 16px', border: '1px solid #d1d5db', backgroundColor: 'white', borderRadius: '4px', cursor: 'pointer'
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleEarlySubmit}
+              style={{
+                padding: '8px 16px', backgroundColor: '#dc2626', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer'
+              }}
+            >
+              Mark Absent & Checkout
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+    </div >
   );
 }

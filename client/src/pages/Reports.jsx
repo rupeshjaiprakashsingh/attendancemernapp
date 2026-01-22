@@ -9,10 +9,42 @@ export default function Reports() {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [reportData, setReportData] = useState(null);
   const [reportType, setReportType] = useState("monthly"); // "monthly" or "dateRange"
-  const [fromDate, setFromDate] = useState("");
-  const [toDate, setToDate] = useState("");
+  const [users, setUsers] = useState([]);
+  const [selectedUser, setSelectedUser] = useState("all");
 
   const token = JSON.parse(localStorage.getItem("auth")) || localStorage.getItem("token") || "";
+
+  // Fetch Users
+  React.useEffect(() => {
+    const fetchUsers = async () => {
+      if (!token) return;
+      try {
+        const res = await axios.get("/api/v1/users?limit=1000", {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        setUsers(res.data.users || []);
+      } catch (err) {
+        console.error("Failed to fetch users", err);
+      }
+    };
+    fetchUsers();
+  }, [token]);
+
+
+  // Helper to format hours
+  const formatHours = (decimal) => {
+    if (!decimal) return "-";
+    let hrs = Math.floor(decimal);
+    let mins = Math.round((decimal - hrs) * 60);
+    if (mins === 60) {
+      hrs += 1;
+      mins = 0;
+    }
+    return `${hrs}:${mins.toString().padStart(2, '0')} hrs`;
+  };
+
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
 
   // Generate years array (last 5 years)
   const currentYear = new Date().getFullYear();
@@ -103,7 +135,7 @@ export default function Reports() {
     setLoading(true);
     try {
       const res = await axios.get(
-        `/api/v1/reports/date-range-report?fromDate=${fromDate}&toDate=${toDate}`,
+        `/api/v1/reports/date-range-report?fromDate=${fromDate}&toDate=${toDate}&userId=${selectedUser}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setReportData(res.data);
@@ -124,7 +156,7 @@ export default function Reports() {
     setLoading(true);
     try {
       const res = await axios.get(
-        `/api/v1/reports/export-date-range-excel?fromDate=${fromDate}&toDate=${toDate}`,
+        `/api/v1/reports/export-date-range-excel?fromDate=${fromDate}&toDate=${toDate}&userId=${selectedUser}`,
         {
           headers: { Authorization: `Bearer ${token}` },
           responseType: "blob"
@@ -186,7 +218,6 @@ export default function Reports() {
             Generate detailed monthly attendance reports with export options.
           </p>
 
-          {/* Month/Year Selector */}
           <div className="report-filters">
             <div className="form-group">
               <label className="form-label">Month</label>
@@ -219,7 +250,6 @@ export default function Reports() {
             </div>
           </div>
 
-          {/* Action Buttons */}
           <div className="report-actions">
             <button
               className="btn btn-primary"
@@ -248,8 +278,24 @@ export default function Reports() {
           <p className="card-description">
             Generate detailed attendance reports for a custom date range with date-wise breakdown.
           </p>
+          <br />
 
-          {/* Date Range Selector */}
+          {/* User Selector */}
+          <div className="form-group" style={{ marginBottom: '15px' }}>
+            <label className="form-label">Select User for Detailed Report</label>
+            <select
+              className="form-select"
+              value={selectedUser}
+              onChange={(e) => setSelectedUser(e.target.value)}
+              style={{ width: '100%', maxWidth: '300px' }}
+            >
+              <option value="all">All Users (Summary)</option>
+              {users.map(u => (
+                <option key={u._id} value={u._id}>{u.name} ({u.email})</option>
+              ))}
+            </select>
+          </div>
+
           <div className="report-filters">
             <div className="form-group">
               <label className="form-label">From Date</label>
@@ -272,7 +318,6 @@ export default function Reports() {
             </div>
           </div>
 
-          {/* Action Buttons */}
           <div className="report-actions">
             <button
               className="btn btn-primary"
@@ -304,38 +349,88 @@ export default function Reports() {
           </div>
           <div className="card-body">
             <div className="table-container">
-              <table className="table-responsive">
-                <thead>
-                  <tr>
-                    <th>Name</th>
-                    <th>Email</th>
-                    <th>Days Present</th>
-                    <th>Days Absent</th>
-                    <th>Total Hours</th>
-                    <th>Avg Hours/Day</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {reportData.data.map((user, index) => (
-                    <tr key={index}>
-                      <td>{user.name}</td>
-                      <td>{user.email}</td>
-                      <td>
-                        <span className="badge badge-success">
-                          {user.daysPresent}
-                        </span>
-                      </td>
-                      <td>
-                        <span className="badge badge-danger">
-                          {user.daysAbsent}
-                        </span>
-                      </td>
-                      <td>{user.totalWorkingHours.toFixed(2)} hrs</td>
-                      <td>{user.averageWorkingHours.toFixed(2)} hrs</td>
+
+              {/* CHECK IF SINGLE USER DETAIL VIEW */}
+              {selectedUser !== "all" && reportData.data && reportData.data.length === 1 ? (
+                <div>
+                  <h4>Details for: {reportData.data[0].name}</h4>
+                  <table className="table-responsive">
+                    <thead>
+                      <tr>
+                        <th>Date</th>
+                        <th>Status</th>
+                        <th>In Time</th>
+                        <th>Out Time</th>
+                        <th>Working Hours</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(() => {
+                        const user = reportData.data[0];
+                        // Generate table rows from dailyRecords object keys, sorted
+                        const dates = Object.keys(user.dailyRecords || {}).sort();
+
+                        if (dates.length === 0) return <tr><td colSpan="5" className="text-center">No records found within this range.</td></tr>
+
+                        return dates.map(dateStr => {
+                          const record = user.dailyRecords[dateStr];
+                          const hasData = record.checkIn || record.checkOut;
+                          return (
+                            <tr key={dateStr}>
+                              <td>{dateStr}</td>
+                              <td>
+                                {hasData ? (
+                                  <span className="badge badge-success">Present</span>
+                                ) : (
+                                  <span className="badge badge-danger">Absent</span>
+                                )}
+                              </td>
+                              <td>{record.checkIn ? new Date(record.checkIn).toLocaleTimeString() : "-"}</td>
+                              <td>{record.checkOut ? new Date(record.checkOut).toLocaleTimeString() : "-"}</td>
+                              <td>{formatHours(record.workingHours)}</td>
+                            </tr>
+                          );
+                        });
+                      })()}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                /* SUMMARY TABLE FOR ALL USERS (Or Monthly Report) */
+                <table className="table-responsive">
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Email</th>
+                      <th>Days Present</th>
+                      <th>Days Absent</th>
+                      <th>Total Hours</th>
+                      <th>Avg Hours/Day</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {reportData.data.map((user, index) => (
+                      <tr key={index}>
+                        <td>{user.name}</td>
+                        <td>{user.email}</td>
+                        <td>
+                          <span className="badge badge-success">
+                            {user.daysPresent}
+                          </span>
+                        </td>
+                        <td>
+                          <span className="badge badge-danger">
+                            {user.daysAbsent}
+                          </span>
+                        </td>
+                        <td>{user.totalWorkingHours.toFixed(2)} hrs</td>
+                        <td>{user.averageWorkingHours.toFixed(2)} hrs</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+
             </div>
           </div>
         </div>

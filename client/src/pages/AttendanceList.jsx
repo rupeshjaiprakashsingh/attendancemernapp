@@ -438,7 +438,16 @@ export default function AttendanceList() {
                         {/* WORKING HOURS */}
                         <td>
                           {r.outRecord?.workingHours
-                            ? r.outRecord.workingHours.toFixed(2) + " hrs"
+                            ? (() => {
+                              const decimal = parseFloat(r.outRecord.workingHours);
+                              let hrs = Math.floor(decimal);
+                              let mins = Math.round((decimal - hrs) * 60);
+                              if (mins === 60) {
+                                hrs += 1;
+                                mins = 0;
+                              }
+                              return `${hrs}:${mins.toString().padStart(2, '0')} hrs`;
+                            })()
                             : "-"}
                         </td>
 

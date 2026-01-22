@@ -57,7 +57,12 @@ export default function HomeDashboard() {
 
         setAdminStats(statsRes.data.stats);
         setTrend(trendRes.data.trend);
-        setRecentActivity(activityRes.data.activities);
+
+        const activities = activityRes.data.activities;
+        setRecentActivity(activities);
+        if (activities.length > 0) {
+          lastKnownActivityId.current = activities[0]._id;
+        }
       } else {
         // Fetch user stats
         const statsRes = await axios.get(`/api/v1/dashboard/user-stats/${userId}`, {
@@ -71,6 +76,64 @@ export default function HomeDashboard() {
     }
     setLoading(false);
   };
+
+  // Notification Logic
+  const lastKnownActivityId = React.useRef(null);
+  const audioRef = React.useRef(new Audio("https://codeskulptor-demos.commondatastorage.googleapis.com/pang/pop.mp3"));
+
+  useEffect(() => {
+    if (userRole !== "admin") return;
+
+    // Request permission
+    if (Notification.permission !== "granted") {
+      Notification.requestPermission();
+    }
+
+    const checkForNewActivity = async () => {
+      try {
+        const res = await axios.get("/api/v1/dashboard/recent-activity?limit=5", {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const latestActivities = res.data.activities;
+
+        if (latestActivities.length > 0) {
+          const newest = latestActivities[0];
+
+          // If we have a last known ID, and the newest ID is different -> New Activity!
+          if (lastKnownActivityId.current && newest._id !== lastKnownActivityId.current) {
+            // Find all new activities (simplified: just the top one or iterate)
+            // For simplicity, we'll notify about the top one, or logic to find all newer could be added
+            // But usually just notifying the newest is sufficient for polling
+
+            const activityName = newest.userId?.name || "Someone";
+            const type = newest.attendanceType;
+
+            // Play Sound
+            audioRef.current.play().catch(e => console.log("Audio play failed", e));
+
+            // Show Desktop Notification
+            if (Notification.permission === "granted") {
+              new Notification("New Attendance Activity", {
+                body: `${activityName} marked ${type}`,
+                icon: "/vite.svg" // fallback icon
+              });
+            }
+
+            // Update list in UI
+            setRecentActivity(latestActivities);
+          }
+
+          // Update ref
+          lastKnownActivityId.current = newest._id;
+        }
+      } catch (err) {
+        console.error("Polling error", err);
+      }
+    };
+
+    const interval = setInterval(checkForNewActivity, 5000); // Poll every 5 seconds
+    return () => clearInterval(interval);
+  }, [userRole, token]);
 
   if (loading) {
     return (
