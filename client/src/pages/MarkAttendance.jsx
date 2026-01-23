@@ -172,26 +172,46 @@ export default function Attendance() {
         currentLoc = await fetchLocation();
       } catch (locErr) {
         console.warn("Could not refresh location, using existing...", locErr);
-        // If we strictly require fresh location, we could return here. 
-        // For now, proceeding if we have at least some coords.
         if (!currentLoc.latitude) {
           setLoading(false);
           return;
         }
       }
 
-      // 8-HOUR CHECK-OUT RESTRICTION
+      // 8-HOUR CHECK-OUT RESTRICTION LOGIC
       if (form.attendanceType === "OUT" && bypassTimeCheck !== true) {
-        if (todayRecord && todayRecord.in) {
-          const inTime = new Date(todayRecord.in.deviceTime).getTime();
-          const now = new Date().getTime();
-          const diffMs = now - inTime;
-          const diffHours = diffMs / (1000 * 60 * 60);
+        // Fetch latest record synchronously (to avoid stale state)
+        // Use local date for query
+        const now = new Date();
+        const todayStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+        // Decode token for userId
+        let userId = null;
+        try {
+          const payload = JSON.parse(atob(token.split('.')[1]));
+          userId = payload.id || payload._id;
+        } catch (e) { }
 
-          if (diffHours < 8) {
-            setShowEarlyModal(true);
-            setLoading(false);
-            return;
+        if (userId) {
+          try {
+            const resCheck = await axios.get(`/api/v1/attendance/day/${userId}?date=${todayStr}`, {
+              headers: { Authorization: `Bearer ${token}` }
+            });
+
+            const freshRecord = resCheck.data;
+            if (freshRecord && freshRecord.in) {
+              const inTime = new Date(freshRecord.in.deviceTime).getTime();
+              const currentMs = new Date().getTime();
+              const diffMs = currentMs - inTime;
+              const diffHours = diffMs / (1000 * 60 * 60);
+
+              if (diffHours < 8) {
+                setShowEarlyModal(true);
+                setLoading(false);
+                return;
+              }
+            }
+          } catch (checkErr) {
+            console.error("Failed to verify existing attendance for time check", checkErr);
           }
         }
       }
@@ -415,54 +435,54 @@ export default function Attendance() {
       </div>
 
 
-      {/* Early Checkout Modal */ }
-  {
-    showEarlyModal && (
-      <div style={{
-        position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
-        backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000
-      }}>
-        <div style={{
-          backgroundColor: 'white', padding: '20px', borderRadius: '8px', width: '90%', maxWidth: '400px',
-          boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
-        }}>
-          <h3 style={{ marginTop: 0, color: '#dc2626' }}>Early Checkout Warning</h3>
-          <p style={{ color: '#4b5563', marginBottom: '15px' }}>
-            If you will not complete 8 working hours then <strong>Absent</strong> will be marked for today.
-          </p>
+      {/* Early Checkout Modal */}
+      {
+        showEarlyModal && (
+          <div style={{
+            position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+            backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000
+          }}>
+            <div style={{
+              backgroundColor: 'white', padding: '20px', borderRadius: '8px', width: '90%', maxWidth: '400px',
+              boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+            }}>
+              <h3 style={{ marginTop: 0, color: '#dc2626' }}>Early Checkout Warning</h3>
+              <p style={{ color: '#4b5563', marginBottom: '15px' }}>
+                If you will not complete 8 working hours then <strong>Absent</strong> will be marked for today.
+              </p>
 
-          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Why not able to complete?</label>
-          <textarea
-            value={earlyReason}
-            onChange={(e) => setEarlyReason(e.target.value)}
-            placeholder="Enter reason..."
-            style={{
-              width: '100%', minHeight: '80px', padding: '8px', border: '1px solid #d1d5db', borderRadius: '4px', marginBottom: '15px'
-            }}
-          />
+              <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Why not able to complete?</label>
+              <textarea
+                value={earlyReason}
+                onChange={(e) => setEarlyReason(e.target.value)}
+                placeholder="Enter reason..."
+                style={{
+                  width: '100%', minHeight: '80px', padding: '8px', border: '1px solid #d1d5db', borderRadius: '4px', marginBottom: '15px'
+                }}
+              />
 
-          <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-            <button
-              onClick={() => setShowEarlyModal(false)}
-              style={{
-                padding: '8px 16px', border: '1px solid #d1d5db', backgroundColor: 'white', borderRadius: '4px', cursor: 'pointer'
-              }}
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleEarlySubmit}
-              style={{
-                padding: '8px 16px', backgroundColor: '#dc2626', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer'
-              }}
-            >
-              Mark Absent & Checkout
-            </button>
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                <button
+                  onClick={() => setShowEarlyModal(false)}
+                  style={{
+                    padding: '8px 16px', border: '1px solid #d1d5db', backgroundColor: 'white', borderRadius: '4px', cursor: 'pointer'
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleEarlySubmit}
+                  style={{
+                    padding: '8px 16px', backgroundColor: '#dc2626', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer'
+                  }}
+                >
+                  Mark Absent & Checkout
+                </button>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
-    )
-  }
+        )
+      }
 
     </div >
   );

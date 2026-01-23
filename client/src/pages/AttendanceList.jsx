@@ -323,6 +323,7 @@ export default function AttendanceList() {
                   <th>OUT Time</th>
                   <th>Working Hours</th>
                   <th>Status</th>
+                  <th>Remarks</th>
                   <th>Actions</th>
                 </tr>
               </thead>
@@ -476,6 +477,14 @@ export default function AttendanceList() {
                           >
                             {r.outRecord?.status || r.inRecord?.status || "Present"}
                           </span>
+                        </td>
+
+                        {/* REMARKS */}
+                        <td className="remarks-cell" title={r.outRecord?.remarks || r.inRecord?.remarks || "-"}>
+                          {(() => {
+                            const text = r.outRecord?.remarks || r.inRecord?.remarks || "-";
+                            return text.length > 30 ? text.substring(0, 30) + '...' : text;
+                          })()}
                         </td>
 
                         {/* ACTIONS (Only for Admin) */}
