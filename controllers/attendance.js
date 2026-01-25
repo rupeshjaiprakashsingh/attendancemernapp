@@ -135,11 +135,7 @@ exports.markAttendance = async (req, res) => {
     // Geofence Validation
     const insideFence = isInsideGeofence(latitude, longitude);
 
-    if (!insideFence) {
-      return res.status(400).json({
-        message: "You are attempting to mark attendance from outside the office location. Access Denied."
-      });
-    }
+
 
     // Calculate Working Hours if OUT
     let workingHours = 0;
