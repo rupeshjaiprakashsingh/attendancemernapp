@@ -65,21 +65,7 @@ exports.markAttendance = async (req, res) => {
       }
     }
 
-    // ---------------------------------------------------------
-    // TIME RESTRICTION: No Check-In after 12:30 PM IST
-    // ---------------------------------------------------------
-    if (attendanceType === "IN") {
-      // istDate is already calculated above (serverTime + 5.5 hours)
-      const istHours = istDate.getUTCHours();
-      const istMinutes = istDate.getUTCMinutes();
 
-      // 12:30 PM = 12 hours, 30 minutes
-      if (istHours > 12 || (istHours === 12 && istMinutes >= 30)) {
-        return res.status(400).json({
-          message: "Check-in is not allowed after 12:30 PM IST. You can only Check Out."
-        });
-      }
-    }
 
     // Check if OUT before IN
     if (attendanceType === "OUT") {
@@ -148,6 +134,12 @@ exports.markAttendance = async (req, res) => {
 
     // Geofence Validation
     const insideFence = isInsideGeofence(latitude, longitude);
+
+    if (!insideFence) {
+      return res.status(400).json({
+        message: "You are attempting to mark attendance from outside the office location. Access Denied."
+      });
+    }
 
     // Calculate Working Hours if OUT
     let workingHours = 0;
