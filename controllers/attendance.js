@@ -444,3 +444,59 @@ exports.updateAttendance = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+// GET LIVE LOCATIONS (Latest location for each user)
+exports.getLiveLocations = async (req, res) => {
+  try {
+    const pipeline = [
+      // 1. Sort by latest first
+      { $sort: { deviceTime: -1 } },
+
+      // 2. Group by user to get the latest record
+      {
+        $group: {
+          _id: "$userId",
+          latestRecord: { $first: "$$ROOT" }
+        }
+      },
+
+      // 3. Lookup User info
+      {
+        $lookup: {
+          from: "users",
+          localField: "_id",
+          foreignField: "_id",
+          as: "userDetails"
+        }
+      },
+
+      // 4. Unwind user details
+      { $unwind: "$userDetails" },
+
+      // 5. Project specific fields
+      {
+        $project: {
+          userId: "$_id",
+          name: "$userDetails.name",
+          email: "$userDetails.email",
+          latitude: "$latestRecord.latitude",
+          longitude: "$latestRecord.longitude",
+          lastSeen: "$latestRecord.deviceTime",
+          status: "$latestRecord.attendanceType", // IN or OUT
+          battery: "$latestRecord.batteryPercentage",
+          address: "$latestRecord.address"
+        }
+      }
+    ];
+
+    const locations = await Attendance.aggregate(pipeline);
+
+    res.status(200).json({
+      success: true,
+      count: locations.length,
+      data: locations
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};

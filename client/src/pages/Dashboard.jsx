@@ -131,6 +131,26 @@ const Dashboard = () => {
                   Enquiries
                 </Link>
               </li>
+
+              <li>
+                <Link
+                  to="/dashboard/live-tracking"
+                  className="nav-item"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  Live Map
+                </Link>
+              </li>
+
+              <li>
+                <Link
+                  to="/dashboard/timeline-report"
+                  className="nav-item"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  Timeline Report
+                </Link>
+              </li>
             </>
           )}
 

@@ -12,4 +12,7 @@ router.delete("/:id", auth, attendanceController.deleteAttendance);
 router.post("/delete-multiple", auth, attendanceController.deleteMultipleAttendance);
 router.put("/:id", auth, attendanceController.updateAttendance);
 
+
+router.get("/live-locations", auth, attendanceController.getLiveLocations);
+
 module.exports = router;

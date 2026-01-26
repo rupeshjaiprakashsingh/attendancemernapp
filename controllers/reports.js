@@ -580,3 +580,112 @@ exports.exportDateRangeExcel = async (req, res) => {
         res.status(500).json({ message: error.message });
     }
 };
+
+// Get Timeline Report (Route & Stats)
+exports.getTimelineReport = async (req, res) => {
+    try {
+        const { userId, date } = req.query;
+        if (!userId || !date) {
+            return res.status(400).json({ message: "UserId and Date are required" });
+        }
+
+        const startOfDay = new Date(date);
+        startOfDay.setHours(0, 0, 0, 0);
+        const endOfDay = new Date(date);
+        endOfDay.setHours(23, 59, 59, 999);
+
+        // Fetch logs (using Attendance for now, but could be LocationLog)
+        const logs = await Attendance.find({
+            userId,
+            deviceTime: { $gte: startOfDay, $lte: endOfDay }
+        }).sort({ deviceTime: 1 }).lean();
+
+        if (!logs || logs.length === 0) {
+            return res.status(200).json({
+                success: true,
+                data: {
+                    employeeId: userId,
+                    date,
+                    totalDistance: 0,
+                    idleTime: 0,
+                    motionTime: 0,
+                    stopDetails: [],
+                    route: []
+                }
+            });
+        }
+
+        // Calculation Logic
+        const { calculateDistance } = require("../utils/geoFence");
+
+        let totalDistance = 0; // meters
+        let idleTime = 0; // minutes
+        let motionTime = 0; // minutes
+        let stopDetails = [];
+        let previousLog = logs[0];
+
+        // Thresholds
+        const DISTANCE_THRESHOLD = 20; // meters (to consider motion)
+        const TIME_THRESHOLD_IDLE = 5 * 60 * 1000; // 5 minutes in ms
+
+        // Construct Route Path
+        const route = logs.map(log => ({
+            lat: log.latitude,
+            lng: log.longitude,
+            time: log.deviceTime,
+            type: log.attendanceType
+        }));
+
+        for (let i = 1; i < logs.length; i++) {
+            const currentLog = logs[i];
+
+            const dist = calculateDistance(
+                previousLog.latitude, previousLog.longitude,
+                currentLog.latitude, currentLog.longitude
+            );
+
+            const timeDiff = new Date(currentLog.deviceTime) - new Date(previousLog.deviceTime); // ms
+            const timeDiffMin = timeDiff / (1000 * 60);
+
+            if (dist > DISTANCE_THRESHOLD) {
+                totalDistance += dist;
+                motionTime += timeDiffMin;
+            } else {
+                idleTime += timeDiffMin;
+
+                // If stayed in same place for > Idle Threshold, mark as stop
+                if (timeDiff > TIME_THRESHOLD_IDLE) {
+                    stopDetails.push({
+                        latitude: currentLog.latitude,
+                        longitude: currentLog.longitude,
+                        startTime: previousLog.deviceTime,
+                        endTime: currentLog.deviceTime,
+                        duration: Math.round(timeDiffMin),
+                        address: currentLog.address || "Unknown"
+                    });
+                }
+            }
+            previousLog = currentLog;
+        }
+
+        // Format Result
+        const summary = {
+            employeeId: userId,
+            date,
+            totalDistance: (totalDistance / 1000).toFixed(2), // km
+            idleTime: Math.round(idleTime),
+            motionTime: Math.round(motionTime),
+            stopDetails,
+            route // Return route points for mapping
+        };
+
+        res.status(200).json({
+            success: true,
+            data: summary
+        });
+
+    } catch (error) {
+        console.error("Timeline report error:", error);
+        res.status(500).json({ message: error.message });
+    }
+};

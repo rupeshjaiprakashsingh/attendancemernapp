@@ -1,5 +1,5 @@
 import { RouterProvider, createBrowserRouter } from "react-router-dom";
-import { Dashboard, HomeLayout, Landing, Login, Logout, Register, UserManagement, Enquiries } from "./pages";
+import { Dashboard, HomeLayout, Landing, Login, Logout, Register, UserManagement, Enquiries, LiveTracking, TimelineReport } from "./pages";
 import { ToastContainer } from "react-toastify";
 import HomeDashboard from "./pages/HomeDashboard";
 import MarkAttendance from "./pages/MarkAttendance";
@@ -27,7 +27,9 @@ const router = createBrowserRouter([
           { path: "reports", element: <Reports /> },
           { path: "profile", element: <Profile /> },
           { path: "users", element: <UserManagement /> },
-          { path: "enquiries", element: <Enquiries /> }
+          { path: "enquiries", element: <Enquiries /> },
+          { path: "live-tracking", element: <LiveTracking /> },
+          { path: "timeline-report", element: <TimelineReport /> }
         ]
       },
       { path: "logout", element: <Logout /> }
