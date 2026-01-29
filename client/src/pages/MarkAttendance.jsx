@@ -429,22 +429,8 @@ export default function Attendance() {
           </div>
 
           <div className="form-group">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '5px' }}>
+            <div style={{ marginBottom: '5px' }}>
               <label>Address</label>
-              <button
-                type="button"
-                onClick={(e) => { e.preventDefault(); fetchLocation(); }}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: '#3b82f6',
-                  cursor: 'pointer',
-                  fontSize: '13px',
-                  fontWeight: '600'
-                }}
-              >
-                ↻ Refresh Location
-              </button>
             </div>
             <textarea value={form.address} readOnly placeholder="Fetching address..." />
           </div>
