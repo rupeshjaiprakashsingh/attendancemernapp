@@ -59,18 +59,21 @@ export default function Attendance() {
     } catch { }
   };
 
-  // Reverse Geocoding
+  // Reverse Geocoding - Now returns the address string
   const fetchAddress = async (lat, lng) => {
     try {
       const res = await axios.get(
         `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`
       );
-      setForm((p) => ({ ...p, address: res.data.display_name || "" }));
-    } catch { }
+      const addr = res.data.display_name || "";
+      setForm((p) => ({ ...p, address: addr }));
+      return addr;
+    } catch (error) {
+      return "";
+    }
   };
 
-  // Fetch High Accuracy Location
-  // Uses watchPosition to get the best possible accuracy within a timeout window
+  // Fetch GPS Location (Promisified) - Simplifed to "Previous Code" style
   const fetchLocation = (force = false) => {
     return new Promise((resolve, reject) => {
       if (!navigator.geolocation) {
@@ -78,68 +81,28 @@ export default function Attendance() {
         return;
       }
 
-      const TARGET_ACCURACY = 15; // Aim for 15 meters (GPS level)
-      const TIMEOUT_MS = 15000; // 15 seconds to hunt for satellites
-      const MIN_ACCEPTABLE_ACCURACY = 100; // Refuse if worse than 100m (Cell tower/IP)
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const lat = pos.coords.latitude;
+          const lng = pos.coords.longitude;
+          const acc = pos.coords.accuracy;
 
-      let bestPosition = null;
-      let watchId = null;
-      let timeoutId = null;
-
-      const finish = (pos) => {
-        if (watchId !== null) navigator.geolocation.clearWatch(watchId);
-        if (timeoutId !== null) clearTimeout(timeoutId);
-
-        if (pos) {
-          const { latitude, longitude, accuracy } = pos.coords;
-
-          // If force is enabled, we accept ANY accuracy.
-          // If force is false, we reject bad accuracy.
-          if (!force && accuracy > MIN_ACCEPTABLE_ACCURACY) {
-            reject(new Error(`GPS signal weak (Accuracy: ${Math.round(accuracy)}m). Please move outdoors or try again (Attempt ${retryCount + 1}/3).`));
+          // If we want to enforce accuracy (unless forced)
+          // 100m limit is reasonable to avoid cell tower jumps
+          if (!force && acc > 100) {
+            reject(new Error(`GPS accuracy is low (${Math.round(acc)}m). Try again.`));
             return;
           }
 
-          // Update State
-          setForm((p) => ({ ...p, latitude, longitude, locationAccuracy: accuracy }));
-          fetchAddress(latitude, longitude);
-          resolve({ latitude, longitude, locationAccuracy: accuracy });
-        } else {
-          reject(new Error("Unable to retrieve valid location. Is GPS on?"));
-        }
-      };
-
-      // Start watching
-      watchId = navigator.geolocation.watchPosition(
-        (pos) => {
-          const acc = pos.coords.accuracy;
-
-          // Keep the best position found so far
-          if (!bestPosition || acc < bestPosition.coords.accuracy) {
-            bestPosition = pos;
-          }
-
-          // If accuracy is good enough, stop and resolve immediately
-          if (acc <= TARGET_ACCURACY) {
-            finish(pos);
-          }
+          setForm((p) => ({ ...p, latitude: lat, longitude: lng, locationAccuracy: acc }));
+          resolve({ latitude: lat, longitude: lng, locationAccuracy: acc });
         },
         (err) => {
-          console.warn("Location watch error:", err);
+          const msg = err.message || "Location error";
+          reject(new Error(msg));
         },
-        { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 }
+        { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 } // Fresh data only
       );
-
-      // Timeout fallback
-      timeoutId = setTimeout(() => {
-        if (bestPosition) {
-          // Return the best we found within time
-          finish(bestPosition);
-        } else {
-          // Nothing found
-          finish(null);
-        }
-      }, TIMEOUT_MS);
     });
   };
 
@@ -147,7 +110,8 @@ export default function Attendance() {
   const refreshLocationManual = async () => {
     const toastId = toast.loading("Fetching latest location...");
     try {
-      await fetchLocation(retryCount >= 2);
+      const loc = await fetchLocation(retryCount >= 2);
+      await fetchAddress(loc.latitude, loc.longitude);
       toast.update(toastId, { render: "Location updated!", type: "success", isLoading: false, autoClose: 2000 });
     } catch (e) {
       toast.update(toastId, { render: "Failed to update location.", type: "error", isLoading: false, autoClose: 3000 });
@@ -209,13 +173,19 @@ export default function Attendance() {
   // Submit Attendance
   const markAttendance = async (bypassTimeCheck = false, customRemarks = null) => {
     setLoading(true);
-    setMsg("Fetching location and device details...");
+
+    // STEP 0: Clear old data to prove freshness
+    setForm(prev => ({
+      ...prev,
+      latitude: "",
+      longitude: "",
+      address: "Fetching...",
+      locationAccuracy: ""
+    }));
 
     try {
-      // 1. Fetch Network Type
+      // 1. Fetch Network & Battery (Parallel, non-blocking mostly)
       const netType = navigator.connection?.effectiveType?.toUpperCase() || "";
-
-      // 2. Fetch Battery Status
       let batteryPct = "";
       if (navigator.getBattery) {
         try {
@@ -224,45 +194,57 @@ export default function Attendance() {
         } catch (e) { }
       }
 
-      // 3. Force Refresh Location
-      // We do NOT use the state 'form.latitude' here blindly. We must fetch fresh.
+      // STEP 1: Fetch Fresh Location
+      setMsg("Step 1/3: Requesting fresh location...");
+
       let currentLoc = null;
       try {
         // Pass true if retryCount >= 2 to force acceptance of low accuracy
         const forceAccept = retryCount >= 2;
-        if (forceAccept) {
-          console.warn("Forcing location acceptance due to repeated failures.");
-        }
         currentLoc = await fetchLocation(forceAccept);
-
-        // If successful, reset retries
-        setRetryCount(0);
+        setRetryCount(0); // Reset on success
 
       } catch (locErr) {
         console.warn("Location fetch failed:", locErr);
-        // Increment retry count on failure
         setRetryCount(prev => prev + 1);
       }
 
-      // CRITICAL CHECK: If Location is still missing, STOP.
+      // CRITICAL CHECK
       if (!currentLoc || !currentLoc.latitude || !currentLoc.longitude) {
         setLoading(false);
-        // Custom message based on retry count
         if (retryCount >= 2) {
-          setMsg("Unable to detect location even after retries. Is GPS enabled?");
+          setMsg("Unable to detect location. Is GPS enabled?");
         } else {
-          setMsg(`Location not found or weak signal. Please click 'Mark Attendance' again. (Attempt ${retryCount + 1}/3)`);
+          setMsg(`Location extraction failed. Clicking again might help (Attempt ${retryCount + 1}/3).`);
         }
         toast.error("Location not found. Please try again.");
         return;
       }
 
-      // Update local state for non-React managed values (Battery/Net)
-      // fetchLocation already updated form state for lat/long/acc
-      setForm(p => ({ ...p, batteryPercentage: batteryPct, networkType: netType }));
+      // STEP 2: Fetch Address
+      setMsg("Step 2/3: Location found. Getting address...");
+
+      let currentAddress = "";
+      try {
+        currentAddress = await fetchAddress(currentLoc.latitude, currentLoc.longitude);
+      } catch (addrErr) {
+        console.warn("Address fetch failed", addrErr);
+      }
+
+      // Update Form with Final Data
+      setForm(p => ({
+        ...p,
+        batteryPercentage: batteryPct,
+        networkType: netType,
+        latitude: currentLoc.latitude,
+        longitude: currentLoc.longitude,
+        locationAccuracy: currentLoc.locationAccuracy,
+        address: currentAddress
+      }));
 
       // 8-HOUR CHECK-OUT RESTRICTION LOGIC
       if (form.attendanceType === "OUT" && bypassTimeCheck !== true) {
+        // ... (Logic remains same, just collapsed for brevity in this replace block if needed, but I'll include it to be safe)
         const now = new Date();
         const todayStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
         let userId = null;
@@ -290,29 +272,27 @@ export default function Attendance() {
                 return;
               }
             }
-          } catch (checkErr) {
-            console.error("Failed to verify existing attendance for time check", checkErr);
-          }
+          } catch (checkErr) { /* ignore */ }
         }
       }
 
-      // Prepare Final Payload
-      // We use the 'currentLoc' values we just fetched to be 100% sure we are sending fresh data
-      const finalRemarks = customRemarks !== null ? customRemarks : form.remarks;
-      const deviceTime = new Date().toISOString();
+      // STEP 3: Submit
+      setMsg("Step 3/3: Submitting data...");
 
       const payload = {
-        ...form,
-        remarks: finalRemarks,
+        ...form, // basics
+        remarks: customRemarks !== null ? customRemarks : form.remarks,
         latitude: currentLoc.latitude,
         longitude: currentLoc.longitude,
         locationAccuracy: currentLoc.locationAccuracy,
+        address: currentAddress,
         batteryPercentage: batteryPct,
         networkType: netType,
-        deviceTime: deviceTime
+        deviceTime: new Date().toISOString()
       };
 
-      setMsg("Submitting data...");
+      console.log("Submitting Payload:", payload);
+
       const res = await axios.post(
         "/api/v1/attendance/mark",
         payload,
@@ -322,8 +302,6 @@ export default function Attendance() {
       const message = res.data.message || "Marked successfully";
       setMsg(message);
       toast.success(message);
-
-      // Refresh status
       fetchTodayAttendance();
 
     } catch (error) {
