@@ -24,6 +24,7 @@ export default function Attendance() {
     googleMapsApiKey: "AIzaSyBAbFbmXPOSgsBnhuYrCtSQ7yXK_0nB--Y", // Replace with env if possible
   });
 
+  const [retryCount, setRetryCount] = useState(0); // Track failed attempts
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState("");
   const [todayRecord, setTodayRecord] = useState(null); // Store today's attendance
@@ -68,31 +69,77 @@ export default function Attendance() {
     } catch { }
   };
 
-  // Fetch GPS Location (Promisified)
-  const fetchLocation = () => {
+  // Fetch High Accuracy Location
+  // Uses watchPosition to get the best possible accuracy within a timeout window
+  const fetchLocation = (force = false) => {
     return new Promise((resolve, reject) => {
       if (!navigator.geolocation) {
-        alert("Geolocation not supported");
         reject(new Error("Geolocation not supported"));
         return;
       }
 
-      navigator.geolocation.getCurrentPosition(
+      const TARGET_ACCURACY = 15; // Aim for 15 meters (GPS level)
+      const TIMEOUT_MS = 15000; // 15 seconds to hunt for satellites
+      const MIN_ACCEPTABLE_ACCURACY = 100; // Refuse if worse than 100m (Cell tower/IP)
+
+      let bestPosition = null;
+      let watchId = null;
+      let timeoutId = null;
+
+      const finish = (pos) => {
+        if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+        if (timeoutId !== null) clearTimeout(timeoutId);
+
+        if (pos) {
+          const { latitude, longitude, accuracy } = pos.coords;
+
+          // If force is enabled, we accept ANY accuracy.
+          // If force is false, we reject bad accuracy.
+          if (!force && accuracy > MIN_ACCEPTABLE_ACCURACY) {
+            reject(new Error(`GPS signal weak (Accuracy: ${Math.round(accuracy)}m). Please move outdoors or try again (Attempt ${retryCount + 1}/3).`));
+            return;
+          }
+
+          // Update State
+          setForm((p) => ({ ...p, latitude, longitude, locationAccuracy: accuracy }));
+          fetchAddress(latitude, longitude);
+          resolve({ latitude, longitude, locationAccuracy: accuracy });
+        } else {
+          reject(new Error("Unable to retrieve valid location. Is GPS on?"));
+        }
+      };
+
+      // Start watching
+      watchId = navigator.geolocation.watchPosition(
         (pos) => {
-          const lat = pos.coords.latitude;
-          const lng = pos.coords.longitude;
           const acc = pos.coords.accuracy;
 
-          setForm((p) => ({ ...p, latitude: lat, longitude: lng, locationAccuracy: acc }));
-          fetchAddress(lat, lng);
-          resolve({ latitude: lat, longitude: lng, locationAccuracy: acc });
+          // Keep the best position found so far
+          if (!bestPosition || acc < bestPosition.coords.accuracy) {
+            bestPosition = pos;
+          }
+
+          // If accuracy is good enough, stop and resolve immediately
+          if (acc <= TARGET_ACCURACY) {
+            finish(pos);
+          }
         },
         (err) => {
-          alert("Unable to fetch location: " + err.message);
-          reject(err);
+          console.warn("Location watch error:", err);
         },
-        { enableHighAccuracy: true, maximumAge: 0 }
+        { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 }
       );
+
+      // Timeout fallback
+      timeoutId = setTimeout(() => {
+        if (bestPosition) {
+          // Return the best we found within time
+          finish(bestPosition);
+        } else {
+          // Nothing found
+          finish(null);
+        }
+      }, TIMEOUT_MS);
     });
   };
 
@@ -100,7 +147,7 @@ export default function Attendance() {
   const refreshLocationManual = async () => {
     const toastId = toast.loading("Fetching latest location...");
     try {
-      await fetchLocation();
+      await fetchLocation(retryCount >= 2);
       toast.update(toastId, { render: "Location updated!", type: "success", isLoading: false, autoClose: 2000 });
     } catch (e) {
       toast.update(toastId, { render: "Failed to update location.", type: "error", isLoading: false, autoClose: 3000 });
@@ -137,10 +184,8 @@ export default function Attendance() {
   // On component mount
   useEffect(() => {
     generateDeviceId();
-    fetchBattery();
-    fetchNetwork();
-    fetchLocation();
     fetchTodayAttendance();
+    // Removed automatic fetching of location/battery/network on mount
   }, []);
 
   // Auto-switch to OUT if already checked in
@@ -151,6 +196,7 @@ export default function Attendance() {
   }, [todayRecord]);
 
   const handleEarlySubmit = () => {
+    // ... same as before
     if (!earlyReason.trim()) {
       toast.error("Please provide a reason for early checkout.");
       return;
@@ -163,28 +209,62 @@ export default function Attendance() {
   // Submit Attendance
   const markAttendance = async (bypassTimeCheck = false, customRemarks = null) => {
     setLoading(true);
-    setMsg("");
+    setMsg("Fetching location and device details...");
 
     try {
-      // Force Refresh Location before submitting
-      let currentLoc = { latitude: form.latitude, longitude: form.longitude, locationAccuracy: form.locationAccuracy };
-      try {
-        currentLoc = await fetchLocation();
-      } catch (locErr) {
-        console.warn("Could not refresh location, using existing...", locErr);
-        if (!currentLoc.latitude) {
-          setLoading(false);
-          return;
-        }
+      // 1. Fetch Network Type
+      const netType = navigator.connection?.effectiveType?.toUpperCase() || "";
+
+      // 2. Fetch Battery Status
+      let batteryPct = "";
+      if (navigator.getBattery) {
+        try {
+          const battery = await navigator.getBattery();
+          batteryPct = Math.round(battery.level * 100);
+        } catch (e) { }
       }
+
+      // 3. Force Refresh Location
+      // We do NOT use the state 'form.latitude' here blindly. We must fetch fresh.
+      let currentLoc = null;
+      try {
+        // Pass true if retryCount >= 2 to force acceptance of low accuracy
+        const forceAccept = retryCount >= 2;
+        if (forceAccept) {
+          console.warn("Forcing location acceptance due to repeated failures.");
+        }
+        currentLoc = await fetchLocation(forceAccept);
+
+        // If successful, reset retries
+        setRetryCount(0);
+
+      } catch (locErr) {
+        console.warn("Location fetch failed:", locErr);
+        // Increment retry count on failure
+        setRetryCount(prev => prev + 1);
+      }
+
+      // CRITICAL CHECK: If Location is still missing, STOP.
+      if (!currentLoc || !currentLoc.latitude || !currentLoc.longitude) {
+        setLoading(false);
+        // Custom message based on retry count
+        if (retryCount >= 2) {
+          setMsg("Unable to detect location even after retries. Is GPS enabled?");
+        } else {
+          setMsg(`Location not found or weak signal. Please click 'Mark Attendance' again. (Attempt ${retryCount + 1}/3)`);
+        }
+        toast.error("Location not found. Please try again.");
+        return;
+      }
+
+      // Update local state for non-React managed values (Battery/Net)
+      // fetchLocation already updated form state for lat/long/acc
+      setForm(p => ({ ...p, batteryPercentage: batteryPct, networkType: netType }));
 
       // 8-HOUR CHECK-OUT RESTRICTION LOGIC
       if (form.attendanceType === "OUT" && bypassTimeCheck !== true) {
-        // Fetch latest record synchronously (to avoid stale state)
-        // Use local date for query
         const now = new Date();
         const todayStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
-        // Decode token for userId
         let userId = null;
         try {
           const payload = JSON.parse(atob(token.split('.')[1]));
@@ -216,10 +296,23 @@ export default function Attendance() {
         }
       }
 
-      // Merge fresh location into payload
+      // Prepare Final Payload
+      // We use the 'currentLoc' values we just fetched to be 100% sure we are sending fresh data
       const finalRemarks = customRemarks !== null ? customRemarks : form.remarks;
-      const payload = { ...form, remarks: finalRemarks, ...currentLoc };
+      const deviceTime = new Date().toISOString();
 
+      const payload = {
+        ...form,
+        remarks: finalRemarks,
+        latitude: currentLoc.latitude,
+        longitude: currentLoc.longitude,
+        locationAccuracy: currentLoc.locationAccuracy,
+        batteryPercentage: batteryPct,
+        networkType: netType,
+        deviceTime: deviceTime
+      };
+
+      setMsg("Submitting data...");
       const res = await axios.post(
         "/api/v1/attendance/mark",
         payload,
@@ -234,7 +327,7 @@ export default function Attendance() {
       fetchTodayAttendance();
 
     } catch (error) {
-      const errMsg = error.response?.data?.message || error.message;
+      const errMsg = error.response?.data?.message || error.message || "An error occurred";
       setMsg(errMsg);
       toast.error(errMsg);
     }
@@ -336,26 +429,8 @@ export default function Attendance() {
           </div>
 
           {/* Map View */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+          <div style={{ marginBottom: '8px' }}>
             <label style={{ fontWeight: 'bold', color: '#374151' }}>Current Location</label>
-            <button
-              type="button"
-              onClick={refreshLocationManual}
-              style={{
-                background: '#3b82f6',
-                color: 'white',
-                border: 'none',
-                padding: '5px 10px',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                fontSize: '13px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '5px'
-              }}
-            >
-              Update Location ↻
-            </button>
           </div>
           {isLoaded && form.latitude && form.longitude && (
             <div style={{ height: "250px", width: "100%", marginBottom: "15px", borderRadius: "8px", overflow: "hidden" }}>
