@@ -304,6 +304,18 @@ export default function Attendance() {
       toast.success(message);
       fetchTodayAttendance();
 
+      // Reset Form Details after submission
+      setForm((prev) => ({
+        ...prev,
+        latitude: "",
+        longitude: "",
+        address: "",
+        locationAccuracy: "",
+        batteryPercentage: "",
+        networkType: "",
+        remarks: ""
+      }));
+
     } catch (error) {
       const errMsg = error.response?.data?.message || error.message || "An error occurred";
       setMsg(errMsg);
