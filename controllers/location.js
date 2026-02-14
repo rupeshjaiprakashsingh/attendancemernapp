@@ -74,3 +74,47 @@ exports.getLiveLocations = async (req, res) => {
         res.status(500).json({ message: error.message });
     }
 };
+
+// Get Location History for a Specific User and Date (Where they reached)
+exports.getUserHistory = async (req, res) => {
+    try {
+        const { userId, date } = req.query; // date should be 'YYYY-MM-DD'
+
+        if (!userId || !date) {
+            return res.status(400).json({ success: false, message: "Please provide userId and date (YYYY-MM-DD)" });
+        }
+
+        const startOfDay = new Date(date);
+        startOfDay.setUTCHours(0, 0, 0, 0);
+
+        const endOfDay = new Date(date);
+        endOfDay.setUTCHours(23, 59, 59, 999);
+
+        const logs = await EmployeeLocationLog.find({
+            employeeId: userId,
+            timestamp: {
+                $gte: startOfDay,
+                $lte: endOfDay
+            }
+        }).sort({ timestamp: 1 }); // Sort by time to show the path
+
+        // Fetch User Details to include in response
+        const user = await User.findById(userId).select("name email");
+
+        res.status(200).json({
+            success: true,
+            user: user,
+            count: logs.length,
+            path: logs.map(log => ({
+                lat: log.latitude,
+                lng: log.longitude,
+                timestamp: log.timestamp,
+                accuracy: log.accuracy,
+                battery: log.battery
+            }))
+        });
+
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};

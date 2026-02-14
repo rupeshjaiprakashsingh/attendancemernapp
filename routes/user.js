@@ -21,7 +21,7 @@ router.route("/register").post(register);
 router.route("/dashboard").get(authMiddleware, dashboard);
 
 // Profile Routes
-router.route("/profile").get(authMiddleware, getProfile).put(authMiddleware, updateProfile);
+router.route("/users/profile").get(authMiddleware, getProfile).put(authMiddleware, updateProfile);
 
 // Admin User CRUD Routes
 router.route("/users").get(authMiddleware, getAllUsers).post(authMiddleware, createUser);
