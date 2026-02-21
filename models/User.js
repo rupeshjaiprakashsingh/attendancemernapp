@@ -35,6 +35,19 @@ const UserSchema = new mongoose.Schema({
         type: String,
         default: null,
     },
+    // New fields for live location & status
+    lastLocation: {
+        lat: { type: Number },
+        lng: { type: Number },
+        timestamp: { type: Date }
+    },
+    batteryStatus: {
+        type: Number
+    },
+    isOnline: {
+        type: Boolean,
+        default: false
+    }
 });
 
 UserSchema.pre("save", async function () {

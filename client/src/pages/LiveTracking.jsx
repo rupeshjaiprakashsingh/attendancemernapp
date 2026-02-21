@@ -1,176 +1,156 @@
 
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState } from "react";
 import axios from "axios";
-import { toast } from 'react-toastify';
-import { GoogleMap, Marker, InfoWindow, useJsApiLoader } from "@react-google-maps/api";
-import "../styles/Attendance.css"; // Reuse existing styles or create new
+import { toast } from "react-toastify";
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
+import icon from 'leaflet/dist/images/marker-icon.png';
+import iconShadow from 'leaflet/dist/images/marker-shadow.png';
 
-const containerStyle = {
-    width: '100%',
-    height: '80vh',
-    borderRadius: '8px'
-};
+// Fix for default marker icon in React Leaflet
+let DefaultIcon = L.icon({
+    iconUrl: icon,
+    shadowUrl: iconShadow,
+    iconAnchor: [12, 41]
+});
+L.Marker.prototype.options.icon = DefaultIcon;
 
-const defaultCenter = {
-    lat: 28.6139,
-    lng: 77.2090
-};
+const customIconOnline = new L.Icon({
+    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/markers/marker-icon-2x-green.png',
+    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+    iconSize: [25, 41],
+    iconAnchor: [12, 41],
+    popupAnchor: [1, -34],
+    shadowSize: [41, 41]
+});
 
-export default function LiveTracking() {
-    const [locations, setLocations] = useState([]);
-    const [filteredLocations, setFilteredLocations] = useState([]);
-    const [selectedUser, setSelectedUser] = useState("all");
-    const [selectedMarker, setSelectedMarker] = useState(null);
+const customIconOffline = new L.Icon({
+    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/markers/marker-icon-2x-red.png',
+    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+    iconSize: [25, 41],
+    iconAnchor: [12, 41],
+    popupAnchor: [1, -34],
+    shadowSize: [41, 41]
+});
+
+const LiveTracking = () => {
+    const [employees, setEmployees] = useState([]);
+    const [loading, setLoading] = useState(true);
     const [lastUpdated, setLastUpdated] = useState(null);
-    const [refreshInterval, setRefreshInterval] = useState(10); // seconds
 
-    const { isLoaded } = useJsApiLoader({
-        googleMapsApiKey: "AIzaSyBAbFbmXPOSgsBnhuYrCtSQ7yXK_0nB--Y", // Using key from local file
-    });
-
-    const mapRef = useRef(null);
-
-    const fetchLocations = async () => {
+    const fetchLiveLocations = async () => {
         try {
-            const token = JSON.parse(localStorage.getItem("auth")) || "";
-            const res = await axios.get("/api/v1/attendance/live-locations", {
-                headers: { Authorization: `Bearer ${token}` }
+            const token = JSON.parse(localStorage.getItem("auth"))?.token;
+            if (!token) return;
+
+            const response = await axios.get("/api/v1/tracking/live", {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
             });
-            setLocations(res.data.data);
-            setLastUpdated(new Date());
+
+            if (response.data.success) {
+                // Filter out users without valid location data
+                const validLocations = response.data.data.filter(emp => emp.latitude && emp.longitude);
+                setEmployees(validLocations);
+                setLastUpdated(new Date());
+            }
         } catch (error) {
-            console.error("Error fetching live locations", error);
+            console.error("Error fetching live locations:", error);
+            // toast.error("Failed to load live locations"); // Optional: Don't spam toasts on polling
+        } finally {
+            setLoading(false);
         }
     };
 
     useEffect(() => {
-        fetchLocations();
-        const interval = setInterval(fetchLocations, refreshInterval * 1000);
+        fetchLiveLocations();
+        const interval = setInterval(fetchLiveLocations, 10000); // Poll every 10 seconds
         return () => clearInterval(interval);
-    }, [refreshInterval]);
+    }, []);
 
-    useEffect(() => {
-        if (selectedUser === "all") {
-            setFilteredLocations(locations);
-        } else {
-            setFilteredLocations(locations.filter(l => l.userId === selectedUser));
-        }
-    }, [selectedUser, locations]);
+    // Default center (New Delhi)
+    const defaultPosition = [28.6139, 77.2090];
 
-    // Handle marker click
-    const handleMarkerClick = (location) => {
-        setSelectedMarker(location);
-    };
+    // Calculate center based on employees if available
+    const mapCenter = employees.length > 0
+        ? [employees[0].latitude, employees[0].longitude]
+        : defaultPosition;
 
-    if (!isLoaded) return <div>Loading Map...</div>;
+    if (loading && employees.length === 0) {
+        return <div className="p-4 text-center">Loading Live Map...</div>;
+    }
 
     return (
-        <div style={{ padding: '20px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                <h2>Live Staff Map 🗺️</h2>
-                <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
-
-                    <div>
-                        <label style={{ marginRight: '10px', fontWeight: 'bold' }}>Filter User:</label>
-                        <select
-                            value={selectedUser}
-                            onChange={(e) => setSelectedUser(e.target.value)}
-                            style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
-                        >
-                            <option value="all">All Employees</option>
-                            {locations.map(loc => (
-                                <option key={loc.userId} value={loc.userId}>{loc.name}</option>
-                            ))}
-                        </select>
-                    </div>
-
-                    <div style={{ fontSize: '14px', color: '#666' }}>
-                        Auto-refresh: {refreshInterval}s
-                        {lastUpdated && ` (Last: ${lastUpdated.toLocaleTimeString()})`}
-                    </div>
+        <div className="p-4" style={{ height: 'calc(100vh - 100px)', padding: "1rem" }}>
+            <div className="flex justify-between items-center mb-4" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                <h2 className="text-2xl font-bold">Live Employee Tracking</h2>
+                <div className="text-sm text-gray-500">
+                    Last Updated: {lastUpdated ? lastUpdated.toLocaleTimeString() : 'Never'}
+                    <span style={{ marginLeft: '10px', fontSize: '0.8rem', color: '#666' }}>Auto-refreshes every 10s</span>
                 </div>
             </div>
 
-            <div style={{ boxShadow: '0 4px 6px rgba(0,0,0,0.1)', borderRadius: '8px', overflow: 'hidden' }}>
-                <GoogleMap
-                    mapContainerStyle={containerStyle}
-                    center={locations.length > 0 ? { lat: locations[0].latitude, lng: locations[0].longitude } : defaultCenter}
-                    zoom={12}
-                    onLoad={map => mapRef.current = map}
-                >
-                    {filteredLocations.map((loc) => (
-                        <Marker
-                            key={loc.userId}
-                            position={{ lat: loc.latitude, lng: loc.longitude }}
-                            onClick={() => handleMarkerClick(loc)}
-                            title={loc.name}
-                        // Optional: Add custom icon based on status
-                        // icon={{ url: "..." }} 
-                        />
-                    ))}
+            <div className="map-container" style={{ height: "100%", width: "100%", borderRadius: "10px", overflow: "hidden", border: "1px solid #ddd" }}>
+                <MapContainer center={mapCenter} zoom={13} scrollWheelZoom={true} style={{ height: "100%", width: "100%" }}>
+                    <TileLayer
+                        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                    />
 
-                    {selectedMarker && (
-                        <InfoWindow
-                            position={{ lat: selectedMarker.latitude, lng: selectedMarker.longitude }}
-                            onCloseClick={() => setSelectedMarker(null)}
+                    {employees.map((emp) => (
+                        <Marker
+                            key={emp.userId}
+                            position={[emp.latitude, emp.longitude]}
+                            icon={emp.isOnline ? customIconOnline : customIconOffline}
                         >
-                            <div style={{ minWidth: '200px' }}>
-                                <h3 style={{ margin: '0 0 10px 0' }}>{selectedMarker.name}</h3>
-                                <p><strong>Status:</strong> {selectedMarker.status}</p>
-                                <p><strong>Time:</strong> {new Date(selectedMarker.lastSeen).toLocaleString()}</p>
-                                <p><strong>Battery:</strong> {selectedMarker.battery}%</p>
-                                <p style={{ fontSize: '12px', color: '#555' }}>{selectedMarker.address}</p>
-                                <a
-                                    href={`https://www.google.com/maps?q=${selectedMarker.latitude},${selectedMarker.longitude}`}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    style={{ display: 'block', marginTop: '10px', color: '#3b82f6' }}
-                                >
-                                    View on Google Maps
-                                </a>
-                            </div>
-                        </InfoWindow>
-                    )}
-                </GoogleMap>
+                            <Popup>
+                                <div style={{ minWidth: '200px' }}>
+                                    <h3 style={{ margin: '0 0 5px 0', fontSize: '1.1rem', fontWeight: 'bold' }}>{emp.name}</h3>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', fontSize: '0.9rem' }}>
+                                        <div>
+                                            <strong>Status:</strong>
+                                            <span style={{
+                                                marginLeft: '5px',
+                                                color: emp.status === 'Checked In' ? 'green' : 'red',
+                                                fontWeight: 'bold'
+                                            }}>
+                                                {emp.status}
+                                            </span>
+                                        </div>
+                                        <div><strong>Battery:</strong> {emp.batteryPercentage || 'N/A'}%</div>
+                                        <div><strong>Online:</strong> {emp.isOnline ? 'Yes' : 'No'}</div>
+                                        <div><strong>Last Seen:</strong> {emp.lastUpdated ? new Date(emp.lastUpdated).toLocaleTimeString() : 'N/A'}</div>
+                                    </div>
+                                </div>
+                            </Popup>
+                        </Marker>
+                    ))}
+                </MapContainer>
             </div>
 
-            <div style={{ marginTop: '20px' }}>
-                <h3>Details</h3>
-                <div style={{ overflowX: 'auto' }}>
-                    <table className="report-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
-                        <thead>
-                            <tr style={{ backgroundColor: '#f3f4f6', textAlign: 'left' }}>
-                                <th style={{ padding: '10px' }}>Name</th>
-                                <th style={{ padding: '10px' }}>Status</th>
-                                <th style={{ padding: '10px' }}>Last Seen</th>
-                                <th style={{ padding: '10px' }}>Address</th>
-                                <th style={{ padding: '10px' }}>Battery</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {filteredLocations.map(loc => (
-                                <tr key={loc.userId} style={{ borderBottom: '1px solid #e5e7eb' }}>
-                                    <td style={{ padding: '10px' }}>{loc.name}</td>
-                                    <td style={{ padding: '10px' }}>
-                                        <span style={{
-                                            padding: '4px 8px',
-                                            borderRadius: '12px',
-                                            backgroundColor: loc.status === 'IN' ? '#dcfce7' : '#fee2e2',
-                                            color: loc.status === 'IN' ? '#166534' : '#991b1b',
-                                            fontSize: '12px', fontWeight: 'bold'
-                                        }}>
-                                            {loc.status}
-                                        </span>
-                                    </td>
-                                    <td style={{ padding: '10px' }}>{new Date(loc.lastSeen).toLocaleString()}</td>
-                                    <td style={{ padding: '10px', maxWidth: '300px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{loc.address}</td>
-                                    <td style={{ padding: '10px' }}>{loc.battery}%</td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
+            <div style={{ marginTop: '1rem' }}>
+                <h3>Active Employees: {employees.length}</h3>
+                <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginTop: '0.5rem' }}>
+                    {employees.map(emp => (
+                        <div key={emp.userId} style={{
+                            padding: '0.5rem',
+                            border: '1px solid #eee',
+                            borderRadius: '5px',
+                            background: emp.isOnline ? '#f0fdf4' : '#fef2f2',
+                            width: '200px'
+                        }}>
+                            <strong>{emp.name}</strong>
+                            <div style={{ fontSize: '0.8rem', color: '#666' }}>
+                                {emp.status} • Battery: {emp.batteryPercentage}%
+                            </div>
+                        </div>
+                    ))}
                 </div>
             </div>
         </div>
     );
-}
+};
+
+export default LiveTracking;
