@@ -28,6 +28,11 @@ const Register = () => {
     name: Yup.string().required("Name is required"),
     lastname: Yup.string().required("Lastname is required"),
 
+    username: Yup.string()
+      .trim()
+      .min(3, "Username must be at least 3 characters")
+      .required("Username is required"),
+
     // FIXED STRICT EMAIL VALIDATION
     email: Yup.string()
       .trim()
@@ -53,6 +58,7 @@ const Register = () => {
     initialValues: {
       name: "",
       lastname: "",
+      username: "",
       email: "",
       password: "",
       confirmPassword: "",
@@ -62,7 +68,8 @@ const Register = () => {
     validateOnChange: true,    // <<< FIX
     onSubmit: async (values) => {
       const payload = {
-        username: values.name + " " + values.lastname,
+        name: values.name + " " + values.lastname,
+        username: values.username,
         email: values.email,
         password: values.password,
       };
@@ -127,6 +134,18 @@ const Register = () => {
               />
               {formik.touched.lastname && formik.errors.lastname && (
                 <p className="error-text">{formik.errors.lastname}</p>
+              )}
+
+              {/* USERNAME */}
+              <input
+                type="text"
+                name="username"
+                placeholder="Username (used for login)"
+                className={formik.touched.username && formik.errors.username ? "input-error" : ""}
+                {...formik.getFieldProps("username")}
+              />
+              {formik.touched.username && formik.errors.username && (
+                <p className="error-text">{formik.errors.username}</p>
               )}
 
               {/* EMAIL (FIXED VALIDATION) */}

@@ -25,13 +25,9 @@ const Login = () => {
   // Yup Validation Schema
   // -------------------------
   const validationSchema = Yup.object({
-    email: Yup.string()
+    username: Yup.string()
       .trim()
-      .matches(
-        /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
-        "Invalid email format"
-      )
-      .required("Email is required"),
+      .required("Username is required"),
 
     password: Yup.string()
       .min(6, "Password must be at least 6 characters")
@@ -43,7 +39,7 @@ const Login = () => {
   // -------------------------
   const formik = useFormik({
     initialValues: {
-      email: "",
+      username: "",
       password: "",
     },
     validationSchema,
@@ -84,20 +80,20 @@ const Login = () => {
 
             <form onSubmit={formik.handleSubmit}>
 
-              {/* EMAIL */}
+              {/* USERNAME */}
               <input
-                type="email"
-                name="email"
-                placeholder="Email"
-                value={formik.values.email}
+                type="text"
+                name="username"
+                placeholder="Username"
+                value={formik.values.username}
                 onChange={formik.handleChange}
                 onBlur={formik.handleBlur}
                 className={
-                  formik.touched.email && formik.errors.email ? "input-error" : ""
+                  formik.touched.username && formik.errors.username ? "input-error" : ""
                 }
               />
-              {formik.touched.email && formik.errors.email && (
-                <p className="error-text">{formik.errors.email}</p>
+              {formik.touched.username && formik.errors.username && (
+                <p className="error-text">{formik.errors.username}</p>
               )}
 
               {/* PASSWORD */}

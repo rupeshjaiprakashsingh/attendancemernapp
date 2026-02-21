@@ -16,6 +16,7 @@ const UserManagement = () => {
     const [showModal, setShowModal] = useState(false);
     const [currentUser, setCurrentUser] = useState({
         name: "",
+        username: "",
         email: "",
         password: "",
         role: "user",
@@ -107,7 +108,7 @@ const UserManagement = () => {
     };
 
     const resetForm = () => {
-        setCurrentUser({ name: "", email: "", password: "", role: "user" });
+        setCurrentUser({ name: "", username: "", email: "", password: "", role: "user" });
     };
 
     return (
@@ -135,6 +136,7 @@ const UserManagement = () => {
                         <thead>
                             <tr>
                                 <th>Name</th>
+                                <th>Username</th>
                                 <th>Email</th>
                                 <th>Role</th>
                                 <th>Actions</th>
@@ -144,6 +146,7 @@ const UserManagement = () => {
                             {users.map((user) => (
                                 <tr key={user._id}>
                                     <td>{user.name}</td>
+                                    <td>{user.username}</td>
                                     <td>{user.email}</td>
                                     <td>
                                         <span
@@ -220,6 +223,17 @@ const UserManagement = () => {
                                     value={currentUser.name}
                                     onChange={(e) =>
                                         setCurrentUser({ ...currentUser, name: e.target.value })
+                                    }
+                                    required
+                                />
+                            </div>
+                            <div className="form-group">
+                                <label>Username</label>
+                                <input
+                                    type="text"
+                                    value={currentUser.username}
+                                    onChange={(e) =>
+                                        setCurrentUser({ ...currentUser, username: e.target.value })
                                     }
                                     required
                                 />

@@ -2,15 +2,15 @@ const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 
 const login = async (req, res) => {
-  const { email, password } = req.body;
+  const { username, password } = req.body;
 
-  if (!email || !password) {
+  if (!username || !password) {
     return res.status(400).json({
-      msg: "Bad request. Please add email and password in the request body",
+      msg: "Bad request. Please add username and password in the request body",
     });
   }
 
-  let foundUser = await User.findOne({ email: req.body.email });
+  let foundUser = await User.findOne({ username: new RegExp('^' + req.body.username + '$', 'i') });
   if (foundUser) {
     const isMatch = await foundUser.comparePassword(password);
 
@@ -28,7 +28,7 @@ const login = async (req, res) => {
       return res.status(400).json({ msg: "Bad password" });
     }
   } else {
-    return res.status(400).json({ msg: "Bad credentails" });
+    return res.status(400).json({ msg: "Bad credentials" });
   }
 };
 
@@ -105,7 +105,7 @@ const createUser = async (req, res) => {
 
 const updateUser = async (req, res) => {
   try {
-    const { name, email, password, role } = req.body;
+    const { name, username, email, password, role } = req.body;
     const user = await User.findById(req.params.id);
 
     if (!user) {
@@ -113,6 +113,7 @@ const updateUser = async (req, res) => {
     }
 
     user.name = name || user.name;
+    user.username = username || user.username;
     user.email = email || user.email;
     user.role = role || user.role;
     if (password) {
@@ -141,46 +142,53 @@ const deleteUser = async (req, res) => {
 const { sendEmail } = require("../utils/emailService");
 
 const register = async (req, res) => {
-  let foundUser = await User.findOne({ email: req.body.email });
-  if (foundUser === null) {
-    let { username, email, password, role } = req.body;
-    if (username.length && email.length && password.length) {
-      const person = new User({
-        name: username,
-        email: email,
-        password: password,
-        role: role || "user",
-      });
-      await person.save();
+  let { name, username, email, password, role } = req.body;
 
-      // Send Welcome Email
-      try {
-        const subject = "Welcome to Attendance Management System";
-        const html = `
-          <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
-            <h2 style="color: #2563eb;">Welcome, ${username}!</h2>
-            <p>Thank you for registering with our Attendance Management System.</p>
-            <p>Your account has been successfully created.</p>
-            <p>You can now login to mark your attendance and view reports.</p>
-            <br>
-            <p>Best Regards,</p>
-            <p><strong>Attendance Team</strong></p>
-          </div>
-        `;
-        await sendEmail(email, subject, html);
-        console.log(`Welcome email sent to ${email}`);
-      } catch (emailError) {
-        console.error("Failed to send welcome email:", emailError);
-        // Don't fail registration if email fails
-      }
+  if (!name || !username || !email || !password) {
+    return res.status(400).json({ msg: "Please add all values in the request body" });
+  }
 
-      return res.status(201).json({ person });
-    } else {
-      return res.status(400).json({ msg: "Please add all values in the request body" });
-    }
-  } else {
+  let foundEmail = await User.findOne({ email });
+  if (foundEmail) {
     return res.status(400).json({ msg: "Email already in use" });
   }
+
+  let foundUsername = await User.findOne({ username });
+  if (foundUsername) {
+    return res.status(400).json({ msg: "Username already in use" });
+  }
+
+  const person = new User({
+    name,
+    username,
+    email,
+    password,
+    role: role || "user",
+  });
+  await person.save();
+
+  // Send Welcome Email
+  try {
+    const subject = "Welcome to Attendance Management System";
+    const html = `
+      <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
+        <h2 style="color: #2563eb;">Welcome, ${name}!</h2>
+        <p>Thank you for registering with our Attendance Management System.</p>
+        <p>Your account has been successfully created.</p>
+        <p>You can now login to mark your attendance and view reports.</p>
+        <br>
+        <p>Best Regards,</p>
+        <p><strong>Attendance Team</strong></p>
+      </div>
+    `;
+    await sendEmail(email, subject, html);
+    console.log(`Welcome email sent to ${email}`);
+  } catch (emailError) {
+    console.error("Failed to send welcome email:", emailError);
+    // Don't fail registration if email fails
+  }
+
+  return res.status(201).json({ person });
 };
 
 module.exports = {
