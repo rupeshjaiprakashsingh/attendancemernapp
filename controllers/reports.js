@@ -689,3 +689,122 @@ exports.getTimelineReport = async (req, res) => {
         res.status(500).json({ message: error.message });
     }
 };
+
+// Get Calendar Report Data
+exports.getCalendarReport = async (req, res) => {
+    try {
+        const { fromDate, toDate, userId } = req.query;
+
+        if (!fromDate || !toDate) {
+            return res.status(400).json({ message: "From date and to date are required" });
+        }
+
+        // Parse dates properly to avoid timezone issues
+        const [startYear, startMonth, startDay] = fromDate.split('-').map(Number);
+        const [endYear, endMonth, endDay] = toDate.split('-').map(Number);
+
+        const startDate = new Date(startYear, startMonth - 1, startDay, 0, 0, 0, 0);
+        const endDate = new Date(endYear, endMonth - 1, endDay, 23, 59, 59, 999);
+
+        if (startDate > endDate) {
+            return res.status(400).json({ message: "From date cannot be after to date" });
+        }
+
+        // Users Fetching
+        const userQuery = {};
+        if (userId && userId !== "all") {
+            userQuery._id = userId;
+        }
+        
+        const users = await User.find(userQuery).select("name email");
+
+        // Attendance Filter
+        const attendanceQuery = {
+            deviceTime: { $gte: startDate, $lte: endDate }
+        };
+        if (userId && userId !== "all") {
+            attendanceQuery.userId = userId;
+        }
+
+        const rangeAttendance = await Attendance.find(attendanceQuery);
+
+        const totalDays = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24));
+        const reportsData = [];
+
+        users.forEach(user => {
+            const userAttendance = rangeAttendance.filter(a => a.userId && a.userId.toString() === user._id.toString());
+            
+            // Group by user and date
+            const dailyRecords = {};
+    
+            userAttendance.forEach(record => {
+                const dateStr = new Date(record.deviceTime).toISOString().split('T')[0];
+    
+                if (!dailyRecords[dateStr]) {
+                    dailyRecords[dateStr] = {
+                        checkIn: null,
+                        checkOut: null,
+                        status: "Absent",
+                        workingHours: 0
+                    };
+                }
+    
+                if (record.attendanceType === "IN") {
+                    dailyRecords[dateStr].checkIn = record.deviceTime;
+                    dailyRecords[dateStr].status = "Present";
+                } else if (record.attendanceType === "OUT") {
+                    dailyRecords[dateStr].checkOut = record.deviceTime;
+                    dailyRecords[dateStr].workingHours = record.workingHours || 0;
+                }
+            });
+    
+            let presentDays = Object.keys(dailyRecords).length;
+            let absentDays = totalDays - presentDays;
+            let totalWorkingHours = 0;
+    
+            // Construct calendar format array
+            const calendarData = [];
+            const loopDate = new Date(startDate);
+            while (loopDate <= endDate) {
+                // keep it in local logic
+                const year = loopDate.getFullYear();
+                const month = String(loopDate.getMonth() + 1).padStart(2, '0');
+                const day = String(loopDate.getDate()).padStart(2, '0');
+                const dateStr = `${year}-${month}-${day}`;
+    
+                const record = dailyRecords[dateStr];
+                
+                if (record) {
+                    totalWorkingHours += record.workingHours;
+                }
+                
+                calendarData.push({
+                    date: dateStr,
+                    status: record ? record.status : "Absent",
+                    checkIn: record ? record.checkIn : null,
+                    checkOut: record ? record.checkOut : null,
+                    workingHours: record ? record.workingHours : 0
+                });
+    
+                loopDate.setDate(loopDate.getDate() + 1);
+            }
+
+            reportsData.push({
+                 user: { _id: user._id, name: user.name, email: user.email },
+                 totalDays,
+                 presentDays,
+                 absentDays,
+                 totalWorkingHours: totalWorkingHours.toFixed(2),
+                 calendarData
+            });
+        });
+
+        res.status(200).json({
+            success: true,
+            data: reportsData
+        });
+    } catch (error) {
+        console.error("Calendar report error:", error);
+        res.status(500).json({ message: error.message });
+    }
+};

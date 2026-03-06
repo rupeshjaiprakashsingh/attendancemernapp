@@ -7,7 +7,8 @@ const {
     exportMonthlyExcel,
     getDateRangeReport,
     exportDateRangeExcel,
-    getTimelineReport
+    getTimelineReport,
+    getCalendarReport
 } = require("../controllers/reports");
 
 // Send daily report email (admin only)
@@ -27,5 +28,8 @@ router.get("/export-date-range-excel", auth, exportDateRangeExcel);
 
 // Get timeline report (route & stats)
 router.get("/timeline-report", auth, getTimelineReport);
+
+// Get calendar report data
+router.get("/calendar-report", auth, getCalendarReport);
 
 module.exports = router;

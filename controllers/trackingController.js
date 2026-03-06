@@ -63,9 +63,6 @@ exports.getLiveLocations = async (req, res) => {
             return res.status(403).json({ success: false, message: "Not authorized to view live locations" });
         }
 
-        // 2. Fetch all users (excluding admins if preferred, or just all users)
-        // Only fetch users who have reported a location ever? Or all users?
-        // Let's fetch all 'user' role users
         const users = await User.find({ role: 'user' }).select('name lastLocation batteryStatus isOnline');
 
         // 3. Get latest attendance status for each user for TODAY
@@ -73,11 +70,13 @@ exports.getLiveLocations = async (req, res) => {
         startOfDay.setHours(0, 0, 0, 0);
 
         const liveData = await Promise.all(users.map(async (user) => {
-            // Find latest attendance for today
-            const lastAttendance = await Attendance.findOne({
+            // Find latest attendance for today (use deviceTime since that's what we manually seed/rely on)
+            const lastAttendanceInfo = await Attendance.find({
                 userId: user._id,
-                createdAt: { $gte: startOfDay }
-            }).sort({ createdAt: -1 });
+                deviceTime: { $gte: startOfDay }
+            }).sort({ deviceTime: -1 }).limit(1);
+
+            const lastAttendance = lastAttendanceInfo.length > 0 ? lastAttendanceInfo[0] : null;
 
             let status = "Not Marked";
             if (lastAttendance) {
@@ -95,11 +94,6 @@ exports.getLiveLocations = async (req, res) => {
                 status: status
             };
         }));
-
-        // Filter out users with no location data if necessary, or keep them to show status.
-        // The requirement implies showing markers, so maybe filter null lat/lng?
-        // But the list might also be used for a sidebar. Let's keep all but sorting active ones to top?
-        // For now, return all data as requested.
 
         res.status(200).json({
             success: true,

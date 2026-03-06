@@ -151,6 +151,16 @@ const Dashboard = () => {
                   Timeline Report
                 </Link>
               </li>
+
+              <li>
+                <Link
+                  to="/dashboard/calendar-report"
+                  className="nav-item"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  Calendar Report
+                </Link>
+              </li>
             </>
           )}
 
