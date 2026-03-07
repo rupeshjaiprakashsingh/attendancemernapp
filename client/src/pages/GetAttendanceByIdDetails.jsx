@@ -26,6 +26,7 @@ export default function GetAttendanceByIdDetails() {
 
   // Load Google Maps
   const { isLoaded } = useJsApiLoader({
+    id: 'google-map-script',
     googleMapsApiKey: "AIzaSyBAbFbmXPOSgsBnhuYrCtSQ7yXK_0nB--Y",
   });
 

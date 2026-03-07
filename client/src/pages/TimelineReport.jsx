@@ -26,6 +26,7 @@ export default function TimelineReport() {
     const [selectedPoint, setSelectedPoint] = useState(null);
 
     const { isLoaded } = useJsApiLoader({
+        id: 'google-map-script',
         googleMapsApiKey: "AIzaSyBAbFbmXPOSgsBnhuYrCtSQ7yXK_0nB--Y"
     });
 
