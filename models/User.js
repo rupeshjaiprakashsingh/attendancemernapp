@@ -37,6 +37,14 @@ const UserSchema = new mongoose.Schema({
         enum: ['user', 'admin'],
         default: 'user',
     },
+    mobileNumber: {
+        type: String,
+        required: [true, 'Please provide mobile number'],
+    },
+    dateOfBirth: {
+        type: Date,
+        required: [true, 'Please provide date of birth'],
+    },
     deviceId: {
         type: String,
         default: null,

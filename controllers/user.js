@@ -86,9 +86,9 @@ const getUserById = async (req, res) => {
 
 const createUser = async (req, res) => {
   try {
-    const { name, email, password, role } = req.body;
-    if (!name || !email || !password) {
-      return res.status(400).json({ msg: "Please provide all fields" });
+    const { name, email, password, role, mobileNumber, dateOfBirth } = req.body;
+    if (!name || !email || !password || !mobileNumber || !dateOfBirth) {
+      return res.status(400).json({ msg: "Please provide all fields including mobile and DOB" });
     }
 
     const userExists = await User.findOne({ email });
@@ -96,7 +96,7 @@ const createUser = async (req, res) => {
       return res.status(400).json({ msg: "Email already in use" });
     }
 
-    const user = await User.create({ name, email, password, role: role || "user" });
+    const user = await User.create({ name, email, password, mobileNumber, dateOfBirth, role: role || "user" });
     res.status(201).json({ user });
   } catch (error) {
     res.status(500).json({ msg: error.message });
@@ -105,7 +105,7 @@ const createUser = async (req, res) => {
 
 const updateUser = async (req, res) => {
   try {
-    const { name, username, email, password, role } = req.body;
+    const { name, username, email, password, role, mobileNumber, dateOfBirth } = req.body;
     const user = await User.findById(req.params.id);
 
     if (!user) {
@@ -116,6 +116,8 @@ const updateUser = async (req, res) => {
     user.username = username || user.username;
     user.email = email || user.email;
     user.role = role || user.role;
+    user.mobileNumber = mobileNumber || user.mobileNumber;
+    user.dateOfBirth = dateOfBirth || user.dateOfBirth;
     if (password) {
       user.password = password; // Will be hashed by pre-save hook
     }
@@ -142,9 +144,9 @@ const deleteUser = async (req, res) => {
 const { sendEmail } = require("../utils/emailService");
 
 const register = async (req, res) => {
-  let { name, username, email, password, role } = req.body;
+  let { name, username, email, password, role, mobileNumber, dateOfBirth } = req.body;
 
-  if (!name || !username || !email || !password) {
+  if (!name || !username || !email || !password || !mobileNumber || !dateOfBirth) {
     return res.status(400).json({ msg: "Please add all values in the request body" });
   }
 
@@ -164,6 +166,8 @@ const register = async (req, res) => {
     email,
     password,
     role: role || "user",
+    mobileNumber,
+    dateOfBirth
   });
   await person.save();
 

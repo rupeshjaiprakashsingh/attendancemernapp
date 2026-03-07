@@ -42,6 +42,14 @@ const Register = () => {
       )
       .required("Email is required"),
 
+    mobileNumber: Yup.string()
+      .trim()
+      .min(10, "Mobile Number should be at least 10 digits")
+      .required("Mobile Number is required"),
+
+    dateOfBirth: Yup.date()
+      .required("Date of Birth is required"),
+
     password: Yup.string()
       .min(6, "Password must be at least 6 characters")
       .required("Password is required"),
@@ -60,6 +68,8 @@ const Register = () => {
       lastname: "",
       username: "",
       email: "",
+      mobileNumber: "",
+      dateOfBirth: "",
       password: "",
       confirmPassword: "",
     },
@@ -71,6 +81,8 @@ const Register = () => {
         name: values.name + " " + values.lastname,
         username: values.username,
         email: values.email,
+        mobileNumber: values.mobileNumber,
+        dateOfBirth: values.dateOfBirth,
         password: values.password,
       };
 
@@ -160,6 +172,35 @@ const Register = () => {
               />
               {formik.touched.email && formik.errors.email && (
                 <p className="error-text">{formik.errors.email}</p>
+              )}
+
+              {/* MOBILE NUMBER */}
+              <input
+                type="text"
+                name="mobileNumber"
+                placeholder="Mobile Number"
+                className={formik.touched.mobileNumber && formik.errors.mobileNumber ? "input-error" : ""}
+                {...formik.getFieldProps("mobileNumber")}
+              />
+              {formik.touched.mobileNumber && formik.errors.mobileNumber && (
+                <p className="error-text">{formik.errors.mobileNumber}</p>
+              )}
+
+              {/* DATE OF BIRTH */}
+              <input
+                type="date"
+                name="dateOfBirth"
+                placeholder="Date of Birth"
+                title="Date of Birth"
+                className={formik.touched.dateOfBirth && formik.errors.dateOfBirth ? "input-error" : ""}
+                {...formik.getFieldProps("dateOfBirth")}
+                style={{ 
+                    // Make it look like the other inputs slightly better on some OS defaults
+                    color: formik.values.dateOfBirth ? 'inherit' : '#9ca3af' 
+                }}
+              />
+              {formik.touched.dateOfBirth && formik.errors.dateOfBirth && (
+                <p className="error-text">{formik.errors.dateOfBirth}</p>
               )}
 
               {/* PASSWORD */}
