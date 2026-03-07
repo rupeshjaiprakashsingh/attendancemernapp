@@ -144,35 +144,35 @@ const deleteUser = async (req, res) => {
 const { sendEmail } = require("../utils/emailService");
 
 const register = async (req, res) => {
-  let { name, username, email, password, role, mobileNumber, dateOfBirth } = req.body;
-
-  if (!name || !username || !email || !password || !mobileNumber || !dateOfBirth) {
-    return res.status(400).json({ msg: "Please add all values in the request body" });
-  }
-
-  let foundEmail = await User.findOne({ email });
-  if (foundEmail) {
-    return res.status(400).json({ msg: "Email already in use" });
-  }
-
-  let foundUsername = await User.findOne({ username });
-  if (foundUsername) {
-    return res.status(400).json({ msg: "Username already in use" });
-  }
-
-  const person = new User({
-    name,
-    username,
-    email,
-    password,
-    role: role || "user",
-    mobileNumber,
-    dateOfBirth
-  });
-  await person.save();
-
-  // Send Welcome Email
   try {
+    let { name, username, email, password, role, mobileNumber, dateOfBirth } = req.body;
+
+    if (!name || !username || !email || !password || !mobileNumber || !dateOfBirth) {
+      return res.status(400).json({ msg: "Please add all values in the request body" });
+    }
+
+    let foundEmail = await User.findOne({ email });
+    if (foundEmail) {
+      return res.status(400).json({ msg: "Email already in use" });
+    }
+
+    let foundUsername = await User.findOne({ username });
+    if (foundUsername) {
+      return res.status(400).json({ msg: "Username already in use" });
+    }
+
+    const person = new User({
+      name,
+      username,
+      email,
+      password,
+      role: role || "user",
+      mobileNumber,
+      dateOfBirth
+    });
+    await person.save();
+
+    // Send Welcome Email without awaiting (fire and forget) so it doesn't block the API response
     const subject = "Welcome to Attendance Management System";
     const html = `
       <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
@@ -185,14 +185,17 @@ const register = async (req, res) => {
         <p><strong>Attendance Team</strong></p>
       </div>
     `;
-    await sendEmail(email, subject, html);
-    console.log(`Welcome email sent to ${email}`);
-  } catch (emailError) {
-    console.error("Failed to send welcome email:", emailError);
-    // Don't fail registration if email fails
-  }
 
-  return res.status(201).json({ person });
+    sendEmail(email, subject, html)
+      .then(() => console.log(`Welcome email sent to ${email}`))
+      .catch((emailError) => console.error("Failed to send welcome email:", emailError));
+
+    return res.status(201).json({ person, msg: "Registration successful" });
+
+  } catch (error) {
+    console.error("Registration endpoint error:", error);
+    return res.status(500).json({ msg: error.message || "Internal Server Error" });
+  }
 };
 
 module.exports = {
