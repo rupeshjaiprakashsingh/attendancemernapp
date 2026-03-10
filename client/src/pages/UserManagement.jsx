@@ -20,6 +20,8 @@ const UserManagement = () => {
         email: "",
         password: "",
         role: "user",
+        mobileNumber: "",
+        dateOfBirth: "",
     });
     const [isEdit, setIsEdit] = useState(false);
 
@@ -96,7 +98,8 @@ const UserManagement = () => {
     };
 
     const openEditModal = (user) => {
-        setCurrentUser({ ...user, password: "" }); // Don't show password
+        const dOb = user.dateOfBirth ? new Date(user.dateOfBirth).toISOString().split('T')[0] : "";
+        setCurrentUser({ ...user, password: "", dateOfBirth: dOb }); // Don't show password
         setIsEdit(true);
         setShowModal(true);
     };
@@ -108,7 +111,7 @@ const UserManagement = () => {
     };
 
     const resetForm = () => {
-        setCurrentUser({ name: "", username: "", email: "", password: "", role: "user" });
+        setCurrentUser({ name: "", username: "", email: "", password: "", role: "user", mobileNumber: "", dateOfBirth: "" });
     };
 
     return (
@@ -245,6 +248,28 @@ const UserManagement = () => {
                                     value={currentUser.email}
                                     onChange={(e) =>
                                         setCurrentUser({ ...currentUser, email: e.target.value })
+                                    }
+                                    required
+                                />
+                            </div>
+                            <div className="form-group">
+                                <label>Mobile Number</label>
+                                <input
+                                    type="text"
+                                    value={currentUser.mobileNumber}
+                                    onChange={(e) =>
+                                        setCurrentUser({ ...currentUser, mobileNumber: e.target.value })
+                                    }
+                                    required
+                                />
+                            </div>
+                            <div className="form-group">
+                                <label>Date of Birth</label>
+                                <input
+                                    type="date"
+                                    value={currentUser.dateOfBirth}
+                                    onChange={(e) =>
+                                        setCurrentUser({ ...currentUser, dateOfBirth: e.target.value })
                                     }
                                     required
                                 />
