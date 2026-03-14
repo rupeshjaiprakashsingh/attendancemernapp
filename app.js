@@ -13,8 +13,9 @@ const attendanceRoutes = require("./routes/attendance");
 const dashboardRoutes = require("./routes/dashboard");
 const reportRoutes = require("./routes/reports");
 
-// Cron Jobs
+// Cron Jobs & Keep-Alive
 const { scheduleDailyReport } = require("./utils/cronJobs");
+const keepAwake = require("./utils/keepAwake");
 
 // Middlewares
 app.use(express.json());
@@ -31,6 +32,11 @@ app.use("/api/v1/geofence", require("./routes/geofence"));
 app.use("/api/v1/location", require("./routes/location"));
 app.use("/api/v1/tracking", require("./routes/trackingRoutes"));
 
+// --- Setup Health Endpoint for Keep-Alive ---
+app.get("/api/health", (req, res) => {
+  res.status(200).json({ status: "ok", message: "Server is awake and healthy" });
+});
+
 const port = process.env.PORT || 3000;
 
 const start = async () => {
@@ -41,6 +47,10 @@ const start = async () => {
 
       // Start cron jobs
       scheduleDailyReport();
+
+      // Pings Render Server every 14 minutes to prevent the free tier sleep after 15 minutes of inactivity
+      const renderWebsiteUrl = "https://salesapiadminpage.onrender.com/api/health";
+      keepAwake(renderWebsiteUrl, 14);
     });
   } catch (error) {
     console.log(error);
